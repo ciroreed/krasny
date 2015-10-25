@@ -1,0 +1,15 @@
+{
+  "name": "krasny",
+  "version": "1.0.0",
+  "description": "early framework",
+  "main": "krasny.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "ciroreed",
+  "license": "MIT",
+  "dependencies": {
+    "jquery": "^2.1.4",
+    "underscore": "^1.8.3"
+  }
+}
