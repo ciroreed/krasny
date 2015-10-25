@@ -16,8 +16,8 @@ var K = function(){
       throw new Error('Request failed for ' + url);
     });
   }
-  var events = function(evname, uid, instid){
-    return new Event(evname + '-' + uid + '-' + instid);
+  var events = function(evname, uid, instid, data){
+    return new CustomEvent(evname + '-' + uid + '-' + instid, {detail: data});
   }
   var View = function(prop){
     var selfView = this;
@@ -25,17 +25,21 @@ var K = function(){
     selfView.events = [];
     if(typeof selfView.cfg.uid === 'undefined') throw new Error('View must have `uid` property');
     selfView.uid = selfView.cfg.uid;
-    selfView.init = function(){
+    selfView.init = function(html){
       selfView.el = self.$(selfView.cfg.root).children();
       self._.each(selfView.events, function(v){
         var tmp = v.split('-');
         selfView.el.on(tmp[0], tmp[1], function(){
-          dispatchEvent(events(v, selfView.uid, ""));
+          dispatchEvent(events(v, selfView.uid, "", this));
         });
       });
+      selfView.html = html;
     }
     selfView.listen = function(ev){
       selfView.events.push(ev);
+    }
+    selfView.update = function(){
+      self.render(selfView);
     }
   }
   var Model = function(prop){
@@ -52,8 +56,8 @@ var K = function(){
           return inst.attr[k];
         }
         inst.set = function(k, v){
-          dispatchEvent(events('change', inst.uid, i));
-          dispatchEvent(events('change', inst.uid, ""));
+          dispatchEvent(events('change', inst.uid, i, {prop: k, newvalue: v}));
+          dispatchEvent(events('change', inst.uid, "", {prop: k, newvalue: v}));
           return inst.attr[k] = v;
         }
         self._.each(selfModel.cfg.defaults, function(v, k){
@@ -77,6 +81,9 @@ var K = function(){
     self.views[prop.uid] = tmpview;
     return tmpview;
   }
+  self.filterModel = function(m, predicate){
+    return self._.filter(self[m.uid], function(m){ return self._.isMatch(m.attr, predicate) });
+  }
   self.handle = function(evname, sub, callback){
     var subid, obj;
     if(sub instanceof Model){
@@ -86,8 +93,8 @@ var K = function(){
       subid = "", obj = sub.uid;
       sub.listen(evname);
     }
-    addEventListener(evname + '-' + obj + '-' + subid, function(){
-      callback(sub);
+    addEventListener(evname + '-' + obj + '-' + subid, function(ev){
+      callback(sub, ev.detail);
     });
   }
   self.fetch = function(m){
@@ -105,11 +112,21 @@ var K = function(){
     var renderlist = [];
     if(v) renderlist.push(v); else renderlist = self._.toArray(self.views);
     self._.each(renderlist, function(v){
-      _connect('GET', v.cfg.path, function(html){
-        self.$(v.cfg.root).html(self._.template(html));
-        v.init();
-      });
+      if(v.html){
+        self.$(v.cfg.root).html(self._.template(v.html));
+      }else{
+        _connect('GET', v.cfg.path, function(html){
+          self.$(v.cfg.root).html(self._.template(html));
+          v.init(html);
+        });
+      }
     });
+  }
+  self.start = function(){
+    if(!self.build) throw new Error('build function must be declared');
+    self.build();
+    if(!self.init) throw new Error('init function must be declared');
+    self.init();
   }
 }
 
