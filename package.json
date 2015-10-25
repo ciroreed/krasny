@@ -11,5 +11,19 @@
   "dependencies": {
     "jquery": "^2.1.4",
     "underscore": "^1.8.3"
-  }
+  },
+  "devDependencies": {},
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ciroreed/krasny.git"
+  },
+  "keywords": [
+    "framework",
+    "underscore",
+    "jquery"
+  ],
+  "bugs": {
+    "url": "https://github.com/ciroreed/krasny/issues"
+  },
+  "homepage": "https://github.com/ciroreed/krasny#readme"
 }
