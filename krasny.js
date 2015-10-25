@@ -20,21 +20,30 @@ var K = function(){
     return new Event(evname + '-' + uid + '-' + instid);
   }
   var View = function(prop){
-    var self = this;
-    self.cfg = prop;
-    if(typeof self.cfg.uid === 'undefined'){
-      throw new Error('View must have `uid` property');
+    var selfView = this;
+    selfView.cfg = prop;
+    selfView.events = [];
+    if(typeof selfView.cfg.uid === 'undefined') throw new Error('View must have `uid` property');
+    selfView.uid = selfView.cfg.uid;
+    selfView.init = function(){
+      selfView.el = self.$(selfView.cfg.root).children();
+      self._.each(selfView.events, function(v){
+        var tmp = v.split('-');
+        selfView.el.on(tmp[0], tmp[1], function(){
+          dispatchEvent(events(v, selfView.uid, ""));
+        });
+      });
     }
-    self.uid = self.cfg.uid;
+    selfView.listen = function(ev){
+      selfView.events.push(ev);
+    }
   }
   var Model = function(prop){
-    var self = this;
-    self.cfg = prop;
-    if(typeof self.cfg.uid === 'undefined'){
-      throw new Error('Model must have `uid` property');
-    }
-    self.uid = self.cfg.uid;
-    self.construct = function(fresh, i){
+    var selfModel = this;
+    selfModel.cfg = prop;
+    if(typeof selfModel.cfg.uid === 'undefined') throw new Error('Model must have `uid` property');
+    selfModel.uid = selfModel.cfg.uid;
+    selfModel.construct = function(fresh, i){
       var instance = function(){
         var inst = this;
         inst.uid = self.uid;
@@ -47,13 +56,9 @@ var K = function(){
           dispatchEvent(events('change', inst.uid, ""));
           return inst.attr[k] = v;
         }
-        for(var p in self.cfg.defaults) {
-          if(typeof self.cfg.defaults[p] !== 'function'){
-            inst.attr[p] = fresh[p] || self.cfg.defaults[p];
-          }else{
-            inst[p] = self.cfg.defaults[p];
-          }
-        }
+        self._.each(selfModel.cfg.defaults, function(v, k){
+          if(typeof v !== 'function') inst.attr[k] = fresh[k] || v; else inst[k] = v;
+        });
       };
       return new instance();
     }
@@ -73,28 +78,37 @@ var K = function(){
     return tmpview;
   }
   self.handle = function(evname, sub, callback){
-    var subid, model;
-    if(sub instanceof Array){
-      subid = "";
-      model = sub[0].uid;
-    }else{
-      subid = self[sub.uid].indexOf(sub);
-      model = sub.uid;
+    var subid, obj;
+    if(sub instanceof Model){
+      if(sub instanceof Array) subid = "", obj = sub[0].uid; else subid = self[sub.uid].indexOf(sub), obj = sub.uid;
     }
-    addEventListener(evname + '-' + model + '-' + subid, function(){
+    if(sub instanceof View){
+      subid = "", obj = sub.uid;
+      sub.listen(evname);
+    }
+    addEventListener(evname + '-' + obj + '-' + subid, function(){
       callback(sub);
     });
   }
   self.fetch = function(m){
-    _connect('GET', config.api + m.uid, function(resp, status){
-      self._.each(resp,function(o, i){
-        self[m.uid].push(self.models[m.uid].construct(o, i));
+    var fetchlist = [];
+    if(m) fetchlist.push(m); else fetchlist = self._.toArray(self.models);
+    self._.each(fetchlist, function(m){
+      _connect('GET', config.api + m.uid, function(resp, status){
+        self._.each(resp,function(o, i){
+          self[m.uid].push(self.models[m.uid].construct(o, i));
+        });
       });
     });
   }
   self.render = function(v){
-    _connect('GET', v.cfg.path, function(html){
-      self.$(v.cfg.root).html(self._.template(html));
+    var renderlist = [];
+    if(v) renderlist.push(v); else renderlist = self._.toArray(self.views);
+    self._.each(renderlist, function(v){
+      _connect('GET', v.cfg.path, function(html){
+        self.$(v.cfg.root).html(self._.template(html));
+        v.init();
+      });
     });
   }
 }
