@@ -1,13 +1,13 @@
 var K = function(){
   var self = this;
-  self._ = require('underscore');
-  self.$ = require('jquery');
   self.VERSION = '1.0.0';
-  self.models = {}
-  self.views = {}
-  var config;
-  var _connect = function(httpverb, url, callback){
-    self.$.ajax({
+  var _ = require('underscore');
+  var $ = require('jquery');
+  var models = {}
+  var views = {}
+  var config = {};
+  var connect = function(httpverb, url, callback){
+    $.ajax({
       url: url,
       method: httpverb
     })
@@ -26,8 +26,8 @@ var K = function(){
     if(typeof selfView.cfg.uid === 'undefined') throw new Error('View must have `uid` property');
     selfView.uid = selfView.cfg.uid;
     selfView.init = function(html){
-      selfView.el = self.$(selfView.cfg.root).children();
-      self._.each(selfView.events, function(v){
+      selfView.el = $(selfView.cfg.root).children();
+      _.each(selfView.events, function(v){
         var tmp = v.split('-');
         selfView.el.on(tmp[0], tmp[1], function(){
           dispatchEvent(events(v, selfView.uid, "", this));
@@ -35,11 +35,14 @@ var K = function(){
       });
       selfView.html = html;
     }
+    selfView.handle = function(ev, handler){
+      handle(selfView, ev, handler);
+    }
     selfView.listen = function(ev){
       selfView.events.push(ev);
     }
-    selfView.update = function(){
-      self.render(selfView);
+    selfView.render = function(){
+      render(selfView);
     }
   }
   var Model = function(prop){
@@ -60,74 +63,71 @@ var K = function(){
           dispatchEvent(events('change', inst.uid, "", {prop: k, newvalue: v}));
           return inst.attr[k] = v;
         }
-        self._.each(selfModel.cfg.defaults, function(v, k){
+        _.each(selfModel.cfg.defaults, function(v, k){
           if(typeof v !== 'function') inst.attr[k] = fresh[k] || v; else inst[k] = v;
         });
       };
       return new instance();
     }
+    selfModel.search = function(prop, val){
+      return _.filter(selfModel.all(), function(m){ return m.get(prop).indexOf(val) > -1 });
+    }
+    selfModel.filter = function(predicate){
+      return _.filter(selfModel.all(), function(m){ return _.isMatch(m.attr, predicate) });
+    }
+    selfModel.all = function(){
+      return models[prop.uid].collection;
+    }
+    selfModel.fetch = function(){
+      fetch(selfModel);
+    }
   }
-  self.config = function(cfg){
-    config = cfg;
-  }
-  self.createModel = function(prop){
+  var createModel = function(prop){
     var tmpmodel = new Model(prop);
-    self.models[prop.uid] = tmpmodel;
-    self[tmpmodel.uid] = [];
-    return tmpmodel;
+    models[prop.uid] = tmpmodel;
+    models[prop.uid].collection = [];
+    tmpmodel.fetch();
   }
-  self.createView = function(prop){
+  var createView = function(prop){
     var tmpview = new View(prop);
-    self.views[prop.uid] = tmpview;
-    return tmpview;
+    views[prop.uid] = tmpview;
+    tmpview.render();
   }
-  self.filterModel = function(m, predicate){
-    return self._.filter(self[m.uid], function(m){ return self._.isMatch(m.attr, predicate) });
-  }
-  self.handle = function(evname, sub, callback){
-    var subid, obj;
-    if(sub instanceof Model){
-      if(sub instanceof Array) subid = "", obj = sub[0].uid; else subid = self[sub.uid].indexOf(sub), obj = sub.uid;
+  var handle = function(ctx, evname, callback){
+    var ctxid, obj;
+    if(ctx instanceof Model){
+      if(ctx instanceof Array) ctxid = "", obj = ctx[0].uid; else ctxid = self[ctx.uid].indexOf(ctx), obj = ctx.uid;
     }
-    if(sub instanceof View){
-      subid = "", obj = sub.uid;
-      sub.listen(evname);
+    if(ctx instanceof View){
+      ctxid = "", obj = ctx.uid;
+      ctx.listen(evname);
     }
-    addEventListener(evname + '-' + obj + '-' + subid, function(ev){
-      callback(sub, ev.detail);
+    addEventListener(evname + '-' + obj + '-' + ctxid, function(ev){
+      callback(ev.detail, ev);
     });
   }
-  self.fetch = function(m){
-    var fetchlist = [];
-    if(m) fetchlist.push(m); else fetchlist = self._.toArray(self.models);
-    self._.each(fetchlist, function(m){
-      _connect('GET', config.api + m.uid, function(resp, status){
-        self._.each(resp,function(o, i){
-          self[m.uid].push(self.models[m.uid].construct(o, i));
-        });
+  var fetch = function(m){
+    connect('GET', config.api + m.uid, function(resp, status){
+      _.each(resp,function(o, i){
+        models[m.uid].collection.push(models[m.uid].construct(o, i));
       });
     });
   }
-  self.render = function(v){
-    var renderlist = [];
-    if(v) renderlist.push(v); else renderlist = self._.toArray(self.views);
-    self._.each(renderlist, function(v){
-      if(v.html){
-        self.$(v.cfg.root).html(self._.template(v.html));
-      }else{
-        _connect('GET', v.cfg.path, function(html){
-          self.$(v.cfg.root).html(self._.template(html));
-          v.init(html);
-        });
-      }
-    });
+  var render = function(v){
+    if(v.html){
+      $(v.cfg.root).html(_.template(v.html));
+    }else{
+      connect('GET', v.cfg.path, function(html){
+        $(v.cfg.root).html(_.template(html));
+        v.init(html);
+      });
+    }
   }
-  self.start = function(){
-    if(!self.build) throw new Error('build function must be declared');
-    self.build();
-    if(!self.init) throw new Error('init function must be declared');
-    self.init();
+  self.app = function(configuration){
+    config.api = configuration.apihost || '/';
+    _.each(configuration.models, createModel);
+    _.each(configuration.views, createView);
+    configuration.controller(models, views);
   }
 }
-
 module.exports = new K;
