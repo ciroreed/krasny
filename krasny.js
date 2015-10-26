@@ -1,8 +1,8 @@
-var K = function(){
+var krasny = function(underscore, jquery){
   var self = this;
   self.VERSION = '1.0.0';
-  var _ = require('underscore');
-  var $ = require('jquery');
+  var _ = underscore || require('underscore');
+  var $ = jquery || require('jquery');
   var models = {}
   var views = {}
   var config = {};
@@ -130,4 +130,5 @@ var K = function(){
     configuration.controller(models, views);
   }
 }
-module.exports = new K;
+
+if(typeof module !== 'undefined') module.exports = new krasny; else window.K = new krasny(_, $);
