@@ -1,13 +1,11 @@
 var krasny = function(underscore, jquery){
   var self = this;
   self.VERSION = '1.0.0';
-  var _ = underscore || require('underscore');
-  var $ = jquery || require('jquery');
   var models = {}
   var views = {}
   var config = {};
   var connect = function(httpverb, url, callback){
-    $.ajax({
+    jquery.ajax({
       url: url,
       method: httpverb
     })
@@ -26,8 +24,8 @@ var krasny = function(underscore, jquery){
     if(typeof selfView.cfg.uid === 'undefined') throw new Error('View must have `uid` property');
     selfView.uid = selfView.cfg.uid;
     selfView.init = function(html){
-      selfView.el = $(selfView.cfg.root).children();
-      _.each(selfView.events, function(v){
+      selfView.el = jquery(selfView.cfg.root).children();
+      underscore.each(selfView.events, function(v){
         var tmp = v.split('-');
         selfView.el.on(tmp[0], tmp[1], function(){
           dispatchEvent(events(v, selfView.uid, "", this));
@@ -63,17 +61,17 @@ var krasny = function(underscore, jquery){
           dispatchEvent(events('change', inst.uid, "", {prop: k, newvalue: v}));
           return inst.attr[k] = v;
         }
-        _.each(selfModel.cfg.defaults, function(v, k){
+        underscore.each(selfModel.cfg.defaults, function(v, k){
           if(typeof v !== 'function') inst.attr[k] = fresh[k] || v; else inst[k] = v;
         });
       };
       return new instance();
     }
     selfModel.search = function(prop, val){
-      return _.filter(selfModel.all(), function(m){ return m.get(prop).indexOf(val) > -1 });
+      return underscore.filter(selfModel.all(), function(m){ return m.get(prop).indexOf(val) > -1 });
     }
     selfModel.filter = function(predicate){
-      return _.filter(selfModel.all(), function(m){ return _.isMatch(m.attr, predicate) });
+      return underscore.filter(selfModel.all(), function(m){ return underscore.isMatch(m.attr, predicate) });
     }
     selfModel.all = function(){
       return models[prop.uid].collection;
@@ -108,27 +106,27 @@ var krasny = function(underscore, jquery){
   }
   var fetch = function(m){
     connect('GET', config.api + m.uid, function(resp, status){
-      _.each(resp,function(o, i){
+      underscore.each(resp,function(o, i){
         models[m.uid].collection.push(models[m.uid].construct(o, i));
       });
     });
   }
   var render = function(v){
     if(v.html){
-      $(v.cfg.root).html(_.template(v.html));
+      jquery(v.cfg.root).html(underscore.template(v.html));
     }else{
       connect('GET', v.cfg.path, function(html){
-        $(v.cfg.root).html(_.template(html));
+        jquery(v.cfg.root).html(underscore.template(html));
         v.init(html);
       });
     }
   }
   self.app = function(configuration){
     config.api = configuration.apihost || '/';
-    _.each(configuration.models, createModel);
-    _.each(configuration.views, createView);
+    underscore.each(configuration.models, createModel);
+    underscore.each(configuration.views, createView);
     configuration.controller(models, views);
   }
 }
 
-if(typeof module !== 'undefined') module.exports = new krasny; else window.K = new krasny(_, $);
+if(typeof module !== 'undefined') module.exports = new krasny(require('underscore'), require('jquery')); else window.K = new krasny(_, $);
