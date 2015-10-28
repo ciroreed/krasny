@@ -1,3 +1,5 @@
+@DEPRECATED !!!
+
 # krasny
 
 krasny is a lightweight framework that has two dependencies: 
