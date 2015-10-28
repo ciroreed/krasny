@@ -1,8 +1,8 @@
 var krasny = function(underscore, jquery){
   var self = this;
   self.VERSION = '0.0.5';
-  var models = {}
-  var views = {}
+  var models = {};
+  var views = {};
   var config = {};
   var modelData = [];
   var viewTemplates = [];
@@ -21,9 +21,6 @@ var krasny = function(underscore, jquery){
       connect(resource.uid, resource.uri, call, resourceArray, retrieveSync, callback);
     } else callback();
   }
-  var events = function(evname, uid, data){
-    return new CustomEvent(evname + '-' + uid, {detail: data});
-  }
   var View = function(prop){
     var selfView = this;
     selfView.cfg = prop;
@@ -39,15 +36,6 @@ var krasny = function(underscore, jquery){
       var compiledHtml = underscore.template(html || selfView.html);
       if(selfView.cfg.scope) compiledHtml = compiledHtml({scope: models[selfView.cfg.scope].scope});
       jquery(selfView.cfg.root).html(compiledHtml);
-    }
-    selfView.handle = function(ev, handler){
-      handle(selfView, ev, handler);
-    }
-    selfView.listen = function(ev){
-      var tmp = ev.split('-');
-      selfView.el.on(tmp[0], tmp[1], function(){
-        dispatchEvent(events(ev, selfView.uid, this));
-      });
     }
     selfView.render = function(){
       render(selfView);
@@ -99,12 +87,6 @@ var krasny = function(underscore, jquery){
     views[tmpview.uid] = tmpview;
     viewTemplates.push({uid: tmpview.uid, uri: tmpview.cfg.path});
 
-  }
-  var handle = function(v, evname, callback){
-    v.listen(evname);
-    addEventListener(evname + '-' + v.uid, function(ev){
-      callback(ev.detail, ev);
-    });
   }
   var fetchModel = function(uid, resp){
     underscore.each(resp, function(o, i){
