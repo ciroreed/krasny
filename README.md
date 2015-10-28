@@ -1,4 +1,4 @@
-@DEPRECATED !!!
+must up to date, some methods have changed!
 
 # krasny
 
