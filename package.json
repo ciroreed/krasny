@@ -1,10 +1,10 @@
 {
   "name": "krasny",
-  "version": "1.0.4",
+  "version": "0.0.5",
   "description": "early framework",
   "main": "krasny.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "install": "uglifyjs krasny.js > krasny.min.js"
   },
   "author": "ciroreed",
   "license": "MIT",
