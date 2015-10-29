@@ -4,7 +4,8 @@
   "description": "early framework",
   "main": "krasny.js",
   "scripts": {
-    "install": "uglifyjs krasny.js > krasny.min.js"
+    "install": "uglifyjs krasny.js > krasny.min.js",
+    "prepublish": "git push origin master"
   },
   "author": "ciroreed",
   "license": "MIT",

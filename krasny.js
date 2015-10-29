@@ -58,7 +58,10 @@ var krasny = function(underscore, jquery){
           return inst.attr[k] = v;
         }
         underscore.each(selfModel.cfg.defaults, function(v, k){
-          if(typeof v !== 'function') inst.attr[k] = fresh[k] || v; else inst[k] = v;
+          inst.attr[k] = fresh[k] || null;
+        });
+        underscore.each(selfModel.cfg.methods, function(v, k){
+          inst[k] = v;
         });
       };
       return new instance();
