@@ -10,7 +10,7 @@ var krasny = function(underscore, jquery){
     connect(uid, resource, callback);
   }
   var connect = function(uid, uri, call, args, recursiveFn, callback){
-    $.get(uri, function(data){
+    jquery.get(uri, function(data){
       call(uid, data);
       if(typeof recursiveFn !== 'undefined') recursiveFn(args, call, callback);
     });
