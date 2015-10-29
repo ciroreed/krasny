@@ -1,5 +1,3 @@
-must up to date, some methods have changed!
-
 # krasny
 
 krasny is a lightweight framework that has two dependencies: 
@@ -95,7 +93,5 @@ filter the model collection with *strictmatch*.
 
 *views*
 
-- _.render_ :
+- _.invalidate_ :
 compiles the html in the template unsing underscore's _.template method.
-- _.handle_ : @param String event, @param Function handler
-creates an event handler and defines a custom listener for that action in view.
