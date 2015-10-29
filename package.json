@@ -5,7 +5,8 @@
   "main": "krasny.js",
   "scripts": {
     "install": "uglifyjs krasny.js > krasny.min.js",
-    "prepublish": "git push origin master"
+    "postpublish": "git push origin master",
+    "prepublish": "npm version patch"
   },
   "author": "ciroreed",
   "license": "MIT",
