@@ -10,9 +10,17 @@ var krasny = function(underscore, jquery){
     connect(uid, resource, callback);
   }
   var connect = function(uid, uri, call, args, recursiveFn, callback){
-    jquery.get(uri, function(data){
-      call(uid, data);
-      if(typeof recursiveFn !== 'undefined') recursiveFn(args, call, callback);
+    var req = uri.split(':');
+    var httpverb;
+    if(req[0] === 'DELETE' || req[0] === 'PUT' || req[0] === 'POST') httpverb = req[0];
+    req = req.pop();
+    jquery.ajax({
+      url: req,
+      method: httpverb || 'GET',
+      success: function(data){
+        call(uid, data);
+        if(typeof recursiveFn !== 'undefined') recursiveFn(args, call, callback);
+      }
     });
   }
   var retrieveSync = function(resourceArray, call, callback){
@@ -50,12 +58,14 @@ var krasny = function(underscore, jquery){
       var instance = function(){
         var inst = this;
         inst.uid = self.uid;
-        inst.attr = {}
+        inst.attr = {};
+        inst.changed = false;
         inst.get = function(k){
-          return inst.attr[k];
+          inst.attr[k];
         }
         inst.set = function(k, v){
-          return inst.attr[k] = v;
+          inst.changed = true;
+          inst.attr[k] = v;
         }
         underscore.each(selfModel.cfg.defaults, function(v, k){
           inst.attr[k] = fresh[k] || null;
@@ -78,6 +88,9 @@ var krasny = function(underscore, jquery){
     selfModel.fetch = function(){
       fetch(selfModel);
     }
+    selfModel.save = function(){
+      saveCollection(selfModel);
+    }
   }
   var createModel = function(prop){
     var tmpmodel = new Model(prop);
@@ -89,7 +102,6 @@ var krasny = function(underscore, jquery){
     var tmpview = new View(prop);
     views[tmpview.uid] = tmpview;
     viewTemplates.push({uid: tmpview.uid, uri: tmpview.cfg.path});
-
   }
   var fetchModel = function(uid, resp){
     underscore.each(resp, function(o, i){
@@ -106,6 +118,14 @@ var krasny = function(underscore, jquery){
   var render = function(v){
     getResource(v.iud, v.cfg.path, renderView);
   }
+  var saveCollection = function(m){
+    underscore.each(models[m.uid].collection, function(i){
+      if(i.changed){
+        //PUT i.getRaw()
+      }
+    });
+    underscore.each(underscore.filter(views, underscore.matcher({scope: m.uid})), function(v){ v.invalidate() });
+  }
   self.app = function(configuration){
     config.api = configuration.apihost || '/';
     underscore.each(configuration.models, createModel);
@@ -117,5 +137,4 @@ var krasny = function(underscore, jquery){
     });
   }
 }
-
 if(typeof module !== 'undefined') module.exports = new krasny(require('underscore'), require('jquery')); else window.K = new krasny(_, $);
