@@ -86,9 +86,6 @@ var krasny = function(underscore, jquery){
     selfModel.fetch = function(){
       fetch(selfModel);
     }
-    selfModel.save = function(){
-      saveCollection(selfModel);
-    }
   }
   var createModel = function(prop){
     var tmpmodel = new Model(prop);
