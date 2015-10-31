@@ -59,12 +59,10 @@ var krasny = function(underscore, jquery){
         var inst = this;
         inst.uid = self.uid;
         inst.attr = {};
-        inst.changed = false;
         inst.get = function(k){
           inst.attr[k];
         }
         inst.set = function(k, v){
-          inst.changed = true;
           inst.attr[k] = v;
         }
         underscore.each(selfModel.cfg.defaults, function(v, k){
@@ -117,14 +115,6 @@ var krasny = function(underscore, jquery){
   }
   var render = function(v){
     getResource(v.iud, v.cfg.path, renderView);
-  }
-  var saveCollection = function(m){
-    underscore.each(models[m.uid].collection, function(i){
-      if(i.changed){
-        //PUT i.getRaw()
-      }
-    });
-    underscore.each(underscore.filter(views, underscore.matcher({scope: m.uid})), function(v){ v.invalidate() });
   }
   self.app = function(configuration){
     config.api = configuration.apihost || '/';
