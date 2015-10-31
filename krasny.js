@@ -1,22 +1,24 @@
 var krasny = function(underscore, jquery){
   var self = this;
   self.VERSION = '0.0.5';
+  var HTTP = {get: 'GET', post: 'POST', put: 'PUT', delete: 'DELETE'};
   var models = {};
   var views = {};
   var config = {};
   var modelData = [];
   var viewTemplates = [];
   var getResource = function(uid, resource, callback){
-    connect(uid, resource, callback);
+    connect(uid, resource, undefined, callback);
   }
-  var connect = function(uid, uri, call, args, recursiveFn, callback){
+  var connect = function(uid, uri, body, call, args, recursiveFn, callback){
     var req = uri.split(':');
     var httpverb;
-    if(req[0] === 'DELETE' || req[0] === 'PUT' || req[0] === 'POST') httpverb = req[0];
+    if(req[0] === HTTP.delete || req[0] === HTTP.put || req[0] === HTTP.post) httpverb = req[0];
     req = req.pop();
     jquery.ajax({
       url: req,
-      method: httpverb || 'GET',
+      method: httpverb || HTTP.get,
+      data: body || {},
       success: function(data){
         call(uid, data);
         if(typeof recursiveFn !== 'undefined') recursiveFn(args, call, callback);
@@ -26,21 +28,22 @@ var krasny = function(underscore, jquery){
   var retrieveSync = function(resourceArray, call, callback){
     if(resourceArray.length){
       var resource = resourceArray.shift();
-      connect(resource.uid, resource.uri, call, resourceArray, retrieveSync, callback);
+      connect(resource.uid, resource.uri, undefined, call, resourceArray, retrieveSync, callback);
     } else callback();
   }
   var View = function(prop){
     var selfView = this;
     selfView.cfg = prop;
-    if(typeof selfView.cfg.uid === 'undefined') throw new Error('View must have `uid` property');
     selfView.uid = selfView.cfg.uid;
+    if(typeof selfView.uid === 'undefined') throw new Error('View must have `uid` property');
+    underscore.each(selfView.cfg, function(v, k){ selfView[k] = v });
     selfView.init = function(html){
       selfView.invalidate(html);
-      selfView.el = jquery(selfView.cfg.root).children();
+      selfView.el = jquery(selfView.root).children();
       selfView.html = html;
     }
     selfView.listen = function(){
-      underscore.each(selfView.cfg.events || {}, function(handler, ev){
+      underscore.each(selfView.events || {}, function(handler, ev){
         var event = ev.split(" ");
         var handler = handler.split(" ");
         selfView.el.on(event[0], event[1], underscore.bind(selfView[handler[0]], selfView.el.find(handler[1])));
@@ -48,8 +51,8 @@ var krasny = function(underscore, jquery){
     }
     selfView.invalidate = function(html){
       var compiledHtml = underscore.template(html || selfView.html);
-      if(selfView.cfg.scope) compiledHtml = compiledHtml({scope: models[selfView.cfg.scope].scope});
-      jquery(selfView.cfg.root).html(compiledHtml);
+      if(selfView.scope) compiledHtml = compiledHtml({scope: models[selfView.scope].scope});
+      jquery(selfView.root).html(compiledHtml);
     }
     selfView.render = function(){
       render(selfView);
@@ -66,7 +69,7 @@ var krasny = function(underscore, jquery){
         inst.uid = self.uid;
         inst.attr = {};
         inst.get = function(k){
-          inst.attr[k];
+          return inst.attr[k];
         }
         inst.set = function(k, v){
           inst.attr[k] = v;
@@ -88,12 +91,14 @@ var krasny = function(underscore, jquery){
     }
     selfModel.all = function(){
       selfModel.scope = models[prop.uid].collection;
+      var scopedView = underscore.find(views, underscore.matcher({scope: selfModel.uid}));
+      if(scopedView){ scopedView.invalidate() }
     }
     selfModel.fetch = function(){
       fetch(selfModel);
     }
-    selfModel.create = function(values){
-      selfModel.all();
+    selfModel.create = function(values, callback){
+      connect(selfModel.uid, HTTP.post + ':' + config.api + selfModel.uid, values, callback);
     }
   }
   var createModel = function(prop){
@@ -105,9 +110,10 @@ var krasny = function(underscore, jquery){
   var createView = function(prop){
     var tmpview = new View(prop);
     views[tmpview.uid] = tmpview;
-    viewTemplates.push({uid: tmpview.uid, uri: tmpview.cfg.path});
+    viewTemplates.push({uid: tmpview.uid, uri: tmpview.path });
   }
   var fetchModel = function(uid, resp){
+    models[uid].collection = [];
     underscore.each(resp, function(f){
       models[uid].collection.push(models[uid].construct(f));
     });
@@ -120,7 +126,7 @@ var krasny = function(underscore, jquery){
     getResource(m.uid, config.api + m.uid, fetchModel);
   }
   var render = function(v){
-    getResource(v.iud, v.cfg.path, renderView);
+    getResource(v.iud, v.path, renderView);
   }
   var listen = function(v){
     v.listen();
