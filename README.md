@@ -1,13 +1,13 @@
 # krasny
 
-krasny is a lightweight framework that has two dependencies: 
+krasny is a lightweight framework that has two dependencies:
 
 - https://github.com/jashkenas/underscore
 - https://github.com/jquery/jquery
 
 krasny is under developement, feel free to contribute.
 
-How to use it. 
+How to use it.
 
 In browser as script.
 
@@ -22,10 +22,10 @@ As npm package in node or using browserify:
 K is defined as a global variable containing the fw instance when scripts loads.
 
 methods
-- _.app_ : @param Object configuration 
+- _.app_ : @param Object configuration
 must be called to create an application. One object parameter is mandatory where you must define models, views and controller for this application:
 
-Example: 
+Example:
 
 ``` javascript
 K.app({
@@ -38,7 +38,9 @@ K.app({
               surname: '',
               age: 0,
               address: '',
-              city: '',
+              city: ''
+            }
+            methods: {
               summary: function(){
                 return this.get("name") + ' ' + this.get("surname") + ', ' + this.get("age");
               }
@@ -82,9 +84,9 @@ This example is very self descriptive about how it works.
 
 *models*
 
-- _.fetch_ : 
+- _.fetch_ :
 updates the model collection against the defined datasource (RESTapi datasource definition..).
-- _.all_ : 
+- _.all_ :
 retrieve all the model instances in the model collection.
 - _.search_ : @param String property, @param String value
 filter the model collection with *softmatch*.
@@ -95,3 +97,6 @@ filter the model collection with *strictmatch*.
 
 - _.invalidate_ :
 compiles the html in the template unsing underscore's _.template method.
+
+TODO ->
+- fetch async but wait until all calls are performed

@@ -24,13 +24,19 @@ var krasny = function(underscore, jquery){
   var View = function(prop){
     var selfView = this;
     selfView.cfg = prop;
-    selfView.events = [];
     if(typeof selfView.cfg.uid === 'undefined') throw new Error('View must have `uid` property');
     selfView.uid = selfView.cfg.uid;
     selfView.init = function(html){
       selfView.invalidate(html);
       selfView.el = jquery(selfView.cfg.root).children();
       selfView.html = html;
+    }
+    selfView.listen = function(){
+      underscore.each(selfView.cfg.events || {}, function(handler, ev){
+        var event = ev.split(" ");
+        var handler = handler.split(" ");
+        selfView.el.on(event[0], event[1], underscore.bind(selfView[handler[0]], selfView.el.find(handler[1])));
+      });
     }
     selfView.invalidate = function(html){
       var compiledHtml = underscore.template(html || selfView.html);
@@ -46,7 +52,7 @@ var krasny = function(underscore, jquery){
     selfModel.cfg = prop;
     if(typeof selfModel.cfg.uid === 'undefined') throw new Error('Model must have `uid` property');
     selfModel.uid = selfModel.cfg.uid;
-    selfModel.construct = function(fresh, i){
+    selfModel.construct = function(fresh){
       var instance = function(){
         var inst = this;
         inst.uid = self.uid;
@@ -78,6 +84,9 @@ var krasny = function(underscore, jquery){
     selfModel.fetch = function(){
       fetch(selfModel);
     }
+    selfModel.create = function(values){
+      selfModel.all();
+    }
   }
   var createModel = function(prop){
     var tmpmodel = new Model(prop);
@@ -89,11 +98,10 @@ var krasny = function(underscore, jquery){
     var tmpview = new View(prop);
     views[tmpview.uid] = tmpview;
     viewTemplates.push({uid: tmpview.uid, uri: tmpview.cfg.path});
-
   }
   var fetchModel = function(uid, resp){
-    underscore.each(resp, function(o, i){
-      models[uid].collection.push(models[uid].construct(o, i));
+    underscore.each(resp, function(f){
+      models[uid].collection.push(models[uid].construct(f));
     });
     models[uid].all();
   }
@@ -106,6 +114,9 @@ var krasny = function(underscore, jquery){
   var render = function(v){
     getResource(v.iud, v.cfg.path, renderView);
   }
+  var listen = function(v){
+    v.listen();
+  }
   self.app = function(configuration){
     config.api = configuration.apihost || '/';
     underscore.each(configuration.models, createModel);
@@ -113,6 +124,7 @@ var krasny = function(underscore, jquery){
       underscore.each(configuration.views, createView);
       retrieveSync(viewTemplates, renderView, function(){
         configuration.controller(models, views);
+        underscore.each(views, listen);
       });
     });
   }
