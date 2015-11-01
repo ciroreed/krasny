@@ -1,6 +1,6 @@
 {
   "name": "krasny",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "early framework",
   "main": "krasny.js",
   "scripts": {
