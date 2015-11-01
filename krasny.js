@@ -1,6 +1,6 @@
 var krasny = function(underscore, jquery){
   var self = this;
-  self.VERSION = '1.0.0';
+  self.VERSION = '1.0.6';
   var HTTP = {get: 'GET', post: 'POST', put: 'PUT', delete: 'DELETE'};
   var models = {};
   var views = {};
