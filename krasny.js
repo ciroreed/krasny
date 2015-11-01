@@ -8,9 +8,9 @@ var krasny = function(underscore, jquery){
   var modelData = [];
   var viewTemplates = [];
   var getResource = function(uid, resource, callback){
-    connect(uid, resource, undefined, callback);
+    restAdapter(uid, resource, undefined, callback);
   }
-  var connect = function(uid, uri, body, call, args, recursiveFn, callback){
+  var restAdapter = function(uid, uri, body, call, args, recursiveFn, callback){
     var req = uri.split(':');
     var httpverb;
     if(req[0] === HTTP.delete || req[0] === HTTP.put || req[0] === HTTP.post) httpverb = req[0];
@@ -28,7 +28,7 @@ var krasny = function(underscore, jquery){
   var retrieveSync = function(resourceArray, call, callback){
     if(resourceArray.length){
       var resource = resourceArray.shift();
-      connect(resource.uid, resource.uri, undefined, call, resourceArray, retrieveSync, callback);
+      restAdapter(resource.uid, resource.uri, undefined, call, resourceArray, retrieveSync, callback);
     } else callback();
   }
   var View = function(prop){
@@ -39,20 +39,25 @@ var krasny = function(underscore, jquery){
     underscore.each(selfView.cfg, function(v, k){ selfView[k] = v });
     selfView.init = function(html){
       selfView.invalidate(html);
-      selfView.el = jquery(selfView.root).children();
       selfView.html = html;
     }
     selfView.listen = function(){
       underscore.each(selfView.events || {}, function(handler, ev){
-        var event = ev.split(" ");
-        var handler = handler.split(" ");
-        selfView.el.on(event[0], event[1], underscore.bind(selfView[handler[0]], selfView.el.find(handler[1])));
+        ev = ev.split(" ");
+        handler = handler.split(" ");
+        var context = selfView.el.find(handler[1]);
+        selfView.el.find(ev[1]).on(ev[0], function(e){
+          if(handler[1] === 'target') context = e.target;
+          selfView[handler[0]](e, jquery(context), selfView.el);
+        });
       });
     }
     selfView.invalidate = function(html){
+      selfView.el = jquery(selfView.root);
       var compiledHtml = underscore.template(html || selfView.html);
       if(selfView.scope) compiledHtml = compiledHtml({scope: models[selfView.scope].scope});
       jquery(selfView.root).html(compiledHtml);
+      if(!html) selfView.listen();
     }
     selfView.render = function(){
       render(selfView);
@@ -98,7 +103,16 @@ var krasny = function(underscore, jquery){
       fetch(selfModel);
     }
     selfModel.create = function(values, callback){
-      connect(selfModel.uid, HTTP.post + ':' + config.api + selfModel.uid, values, callback);
+      var uri = HTTP.post + ':' + config.api + selfModel.uid;
+      restAdapter(selfModel.uid, uri, values, callback);
+    }
+    selfModel.update = function(i, values, callback){
+      var uri = HTTP.put + ':' + config.api + selfModel.uid + '/' + models[prop.uid].collection[i].get('id');
+      restAdapter(selfModel.uid, uri, values, callback);
+    }
+    selfModel.delete = function(i, callback){
+      var uri = HTTP.delete + ':' + config.api + selfModel.uid + '/' + models[prop.uid].collection[i].get('id');
+      restAdapter(selfModel.uid, uri, undefined, callback);
     }
   }
   var createModel = function(prop){
@@ -137,7 +151,7 @@ var krasny = function(underscore, jquery){
     retrieveSync(modelData, fetchModel, function(){
       underscore.each(configuration.views, createView);
       retrieveSync(viewTemplates, renderView, function(){
-        configuration.controller(models, views);
+        configuration.controller(models, views, jquery, underscore);
         underscore.each(views, listen);
       });
     });
