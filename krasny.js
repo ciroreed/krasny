@@ -65,9 +65,16 @@ var krasny = function(underscore, jquery){
   }
   var Model = function(prop){
     var selfModel = this;
+    var scopedView;
     selfModel.cfg = prop;
     if(typeof selfModel.cfg.uid === 'undefined') throw new Error('Model must have `uid` property');
     selfModel.uid = selfModel.cfg.uid;
+    var invalidateScopedView = function(){
+      scopedView = scopedView || underscore.find(views, underscore.matcher({scope: selfModel.uid}));
+      if(scopedView){
+        scopedView.invalidate();
+      }
+    }
     selfModel.construct = function(fresh){
       var instance = function(){
         var inst = this;
@@ -80,7 +87,7 @@ var krasny = function(underscore, jquery){
           inst.attr[k] = v;
         }
         underscore.each(selfModel.cfg.defaults, function(v, k){
-          inst.attr[k] = fresh[k] || null;
+          inst.attr[k] = fresh[k] || v;
         });
         underscore.each(selfModel.cfg.methods, function(v, k){
           inst[k] = v;
@@ -90,14 +97,23 @@ var krasny = function(underscore, jquery){
     }
     selfModel.search = function(k, v){
       selfModel.scope = underscore.filter(models[prop.uid].collection, function(m){ return m.get(k).indexOf(v) > -1 });
+      invalidateScopedView();
     }
     selfModel.filter = function(k, v){
       selfModel.scope = underscore.filter(models[prop.uid].collection, function(m){ return m.get(k) === v });
+      invalidateScopedView();
     }
     selfModel.all = function(){
+      if(selfModel.cfg.sorting){
+        selfModel.sort(selfModel.cfg.sorting);
+      }
       selfModel.scope = models[prop.uid].collection;
-      var scopedView = underscore.find(views, underscore.matcher({scope: selfModel.uid}));
-      if(scopedView){ scopedView.invalidate() }
+      invalidateScopedView();
+    }
+    selfModel.sort = function(crit){
+      var key = underscore.keys(crit).shift();
+      var predicate = function(m){ return m.get(key) === crit[key]};
+      models[prop.uid].collection = underscore.sortBy(models[prop.uid].collection, predicate);
     }
     selfModel.fetch = function(){
       fetch(selfModel);
