@@ -19,7 +19,7 @@ As npm package in node or using browserify:
 
 ### guide
 
-K is defined as a global variable containing the fw instance when scripts loads.
+K is defined as a global variable containing the framework instance when scripts loads.
 
 methods
 - _.app_ : @param Object configuration
@@ -28,75 +28,109 @@ must be called to create an application. One object parameter is mandatory where
 Example:
 
 ``` javascript
-K.app({
+      K.app({
         models: [
           {
-            uid: 'person',
+            uid: 'todo',
             defaults: {
-              id: null,
-              name: '',
-              surname: '',
-              age: 0,
-              address: '',
-              city: ''
-            }
+              id: 0,
+              value: '',
+              done: 'false',
+              timestamp: ''
+            },
+            sorting: {
+              done: 'true'
+            },
             methods: {
               summary: function(){
-                return this.get("name") + ' ' + this.get("surname") + ', ' + this.get("age");
+                var str = "";
+                str.concat(this.get("id"));
+                str.concat("\n");
+                str.concat(this.get("value"));
+                str.concat("\n");
+                str.concat(this.get("timestamp"));
+                return str;
               }
             }
           }
         ],
         views: [
           {
-            uid: 'personlist',
-            path: './views/main.tpl',
-            root: '.person-list'
+            uid: 'todocreate',
+            path: './templates/todocreate.tpl',
+            root: '.todo-create',
+            events: {
+              'click .btn-completed': 'filter target',
+              'click .btn-active': 'filter target',
+              'click .btn-all': 'filter target',
+              'click .btn-search': 'toggle .control-bar',
+              'keyup .search-text': 'search target',
+              'click .new': 'submit .todo-value'
+            }
           },
           {
-            uid: 'personsearch',
-            path: './views/search.tpl',
-            root: '.search-bar'
+            uid: 'todolist',
+            path: './templates/todolist.tpl',
+            root: '.todo-list',
+            scope: 'todo',
+            events: {
+              'change .item-list': 'saveText target',
+              'click input[type=checkbox]': 'saveCheck target',
+              'click .btn-remove': 'remove target'
+            }
           }
         ],
-        controller: function(m, v){
-          K.scope = m.person.all();
-          v.personsearch.handle('keyup-input[type=search]', function(el, ev){
-            K.scope = m.person.search('name', el.value);
-            v.personlist.render();
-          });
+        controller: function(m, v, $, _){
+          var fetch = function(){
+            m.todo.fetch();
+          }
+          v.todocreate.filter = function(e, target){
+            if(target.hasClass('btn-completed')){
+              m.todo.filter('done', 'true');
+            }
+            if(target.hasClass('btn-active')){
+              m.todo.filter('done', 'false');
+            }
+            if(target.hasClass('btn-all')){
+              m.todo.all();
+            }
+          }
+          v.todocreate.search = function(e, target){
+            m.todo.search('value', target.val());
+          }
+          v.todocreate.toggle = function(e, target){
+            target.find('.toggle').toggleClass('control-hidden');
+          }
+          v.todocreate.submit = function(e, target){
+            m.todo.create({value: target.val(), timestamp: new Date()}, fetch);
+            target.val('');
+          }
+          v.todolist.saveText = function(e, target){
+            var i = target.parent().attr('data-index');
+            var text = target.val();
+            m.todo.update(i, {value: text, timestamp: new Date()}, fetch);
+          }
+          v.todolist.saveCheck = function(e, target){
+            var i = target.parent().attr('data-index');
+            var checked = target.prop('checked');
+            m.todo.update(i, {done: checked, timestamp: new Date()}, fetch);
+          }
+          v.todolist.remove = function(e, target){
+            var i = target.parent().attr('data-index');
+            m.todo.delete(i, fetch);
+          }
         }
       });
 ```
 This example is very self descriptive about how it works.
-1. we define a model called 'person'
+1. we define a model called 'todo'
 2. we define two views:
-  - personlist prints one <p> for each 'person' that K.scope has ATM.
-  - personsearch only has an input[type=search].
-3. we define a controller which:
-  - asign all the instances of model 'person' to K.scope.
-  - listen in personsearch to any *keyup* at 'input[type=search]' and declares a handler which:
-    - filter/search by name
-    - asign the filter/search result to K.scope
-    - render another time the view personlist therefore DOM is updated.
+  - todolist where each model will be showed
+  - todocreate it only has an input where the todo item will be named.
+3. we define a controller which receives 4 parameters:
+@Object with each view that you defined.
+@Object with each model that you defined.
+@Object with jquery instance.
+@Object with underscore instance.
 
-### API
-
-*models*
-
-- _.fetch_ :
-updates the model collection against the defined datasource (RESTapi datasource definition..).
-- _.all_ :
-retrieve all the model instances in the model collection.
-- _.search_ : @param String property, @param String value
-filter the model collection with *softmatch*.
-- _.filter_ : @param String property, @param String value
-filter the model collection with *strictmatch*.
-
-*views*
-
-- _.invalidate_ :
-compiles the html in the template unsing underscore's _.template method.
-
-TODO ->
-- fetch async but wait until all calls are performed
+Here is a running example -> http://ciroreed.net:8080
