@@ -149,7 +149,7 @@ var krasny = function(underscore, jquery){
 		* Value is the name of the function that will handle this event in Controller.
 		* IE: '<jquery event> <selector>': '<handler> <jquery element as argument in handler (target is the event context)>'
 		*/
-		var listen = function(){
+		SELF_VIEW.listen = function(){
 			underscore.each(SELF_VIEW.events || {}, function(handler, ev){
 				ev = ev.split(" ");
 				handler = handler.split(" ");
