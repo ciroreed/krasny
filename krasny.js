@@ -1,470 +1,349 @@
-/**
- * @class krasny receives underscore and jquery as parameters
- */
-var krasny = function(underscore, jquery){
+var krasny = function (jquery, ejs) {
 
-	/**
-	* @constant SELF_KRASNY, Object which references 'this' inside the main function, avoiding 'this overlap'
-	*/
-	var SELF_KRASNY = this;
+  var SELF_KRASNY = this;
 
-	/**
-	* @constant HTTP, Object with 4 properties, to reference 4 http verbs as Strings
-	*/
-	var HTTP = {
-	get: 	'GET',
-	post: 	'POST',
-	put: 	'PUT',
-	delete: 'DELETE'
-	};
+  var models = {};
 
-	/**
-	* @var models, Object to store predefined model instances as properties.
-	*/
-	var models = {};
+  var views = {};
 
-	/**
-	* @var views, Object to store predefined view instances as properties.
-	*/
-	var views = {};
+  var config = {};
 
-	/**
-	* @var config, Object to store relevant information about the built application as the domain or path to the rest API
-	*/
-    var config = {};
+  var firstModelSync = [];
 
-	/**
-	* @var modelData, Array to fill with the model resources temporally when application is built
-	*/
-	var modelData = [];
+  var viewTemplates = [];
 
-	/**
-	* @var viewTemplates, Array to fill with the view resources temporally when application is built
-	*/
-	var viewTemplates = [];
+  var currentSessionToken;
 
-	/**
-	* @function getResource, Function used to retrieve a resource through ajax. Receives the following parameters:
-	* @param uid, String representing the unique id for this resource
-	* @param resource, String representing the path or url for this resource
-	* @param callback, Function to be executed when resource is available
-	*/
-	var getResource = function(uid, resource, callback){
-		restAdapter(uid, resource, undefined, callback);
-	}
+  var apiHost;
 
-	/**
-	* @function restAdapter, Function used to retrieve a resource through several methods depending on uri
-	* @param uid, String representing the unique id for this resource
-	* @param uri, String formatted like <method:resource>, if there is no method the argument treated as a resource
-	* @param body, Object which contains the request body to send
-	* @param call, Function to be executed for each resource when ever it will available <call(uid, response)>
-	* @param args, Array with queue of resources to be accessed
-	* @param recursiveFn, Function which is the parent stack where arguments are treated
-	* @param callback, Function is the last call that will be executed at the end of the stack
-	*/
-	var restAdapter = function(uid, uri, body, call, args, recursiveFn, callback){
-		var req = uri.split(':');
-		var httpverb;
-		if(req[0] === HTTP.delete || req[0] === HTTP.put || req[0] === HTTP.post) httpverb = req[0];
-		req = req.pop();
-		jquery.ajax({
-		  url: req,
-		  method: httpverb || HTTP.get,
-		  data: body || {},
-		  success: function(data){
-			call(uid, data);
-			if(typeof recursiveFn !== 'undefined') recursiveFn(args, call, callback);
-		  }
-		});
-	}
+  var HTTP = {
+    get: "GET",
+    post: "POST",
+    put: "PUT",
+    delete: "DELETE"
+  };
 
-	/**
-	* @function retrieveSync, Function which synchronous retrieve resources used by the application
-	* recursive call will slice the resourceArray until length is 0
-	* @param resurceArray, Array filled with Objects <{uid: resourceuid, uri: resourcepath}>
-	* @param call, Function to be executed for each resource when ever it will available <call(uid, response)>
-	* @param callback, Function is the last call that will be executed at the end of the stack
-	*/
-	var retrieveSync = function(resourceArray, call, callback){
-		if(resourceArray.length){
-		  var resource = resourceArray.shift();
-		  restAdapter(resource.uid, resource.uri, undefined, call, resourceArray, retrieveSync, callback);
-		} else callback();
-	}
+  var TYPES = {
+    view: "VIEW",
+    model: "MODEL"
+  };
 
-	/**
-	* @class View
-	* View represent a component where the models are rendered in the DOM, Views can be invalidated to
-	* keep IU updated, it also are invalidated if attached models change. A View can have a defined scope
-	* property, this object can be accessed in the template file to place data in the View. Views also
-	* have a list of events that are triggered using jquery selectors.
-	*
-	* Views are defined in the main method 'app' which receives a plain Object which must have a 'views'
-	* property, this property is an Array of configurations for each View. The format is the following:
-	* 	{
-  *   	uid: 'myView',
-  *       path: './templates/myViewTempl.tpl',
-  *       root: '.myElementPlaceHolder',
-  *       events: {
-  *         'keyup .search-text': 'search target',
-  *         'click .new': 'submit .todo-value'
-  *     	}
-  *	},
-	* @param prop, previous Object.
-	*/
-	var View = function(prop){
+  var Type = function (args) {
+    if (!args.uid) throw new Error(args.type +
+      " needs an uid predefined property");
+    var SELF_TYPE = this;
+    var _changeEvent = new CustomEvent("update", {
+      detail: SELF_TYPE
+    });
+    var _UID = args.uid;
+    var _PROPERTYES = {};
+    Object.keys(args).forEach(function (k) {
+      _PROPERTYES[k] = args[k] === _UID ? undefined : args[k];
+    });
+    SELF_TYPE.getUID = function () {
+      return _UID;
+    };
+    SELF_TYPE.get = function (k) {
+      return _PROPERTYES[k];
+    };
+    SELF_TYPE.set = function (k, v, silent) {
+      _PROPERTYES[k] = v;
+      if (!silent) document.dispatchEvent(_changeEvent);
+    };
+    return SELF_TYPE;
+  };
 
-		/**
-		* @constant SELF_VIEW, Object which references 'this' inside the View class, avoiding 'this overlap'
-		*/
-		var SELF_VIEW = this;
+  var Model = function (args) {
+    var SELF_MODEL = this;
+    args.type = TYPES.model;
+    args.scope = [];
 
-		/**
-		* Check if uid is empty or undefined
-		*/
-		if(typeof prop.uid === 'undefined') throw new Error('View must have `uid` property');
+    if (args.session) {
+      SELF_MODEL.authenticate = function (values, callback) {
+        _authModel(values, callback, SELF_MODEL);
+      }
+    }
 
-		/**
-		* @property SELF_VIEW.*, assign all properties to main class
-		*/
-		underscore.each(prop, function(v, k){ SELF_VIEW[k] = v });
+    SELF_MODEL.instance = function (raw) {
+      var INST = Type.call(this, args);
+      _forIn(SELF_MODEL.get("defaults"), function (v, k) {
+        INST.set(k, raw[k] || v, true);
+      });
+      _forIn(SELF_MODEL.get("methods"), function (v, k) {
+        INST[k] = v;
+      });
+      return INST;
+    };
 
-		/**
-		* @method SELF_VIEW.init, Function invalidates the view and assign the html to a property
-		* @param html, String with the template
-		*/
-		SELF_VIEW.init = function(html){
-			SELF_VIEW.invalidate(html);
-			SELF_VIEW.html = html;
-		}
+    SELF_MODEL.search = function (k, v) {
+      _search(k, v, SELF_MODEL);
+    };
 
-		/**
-		* @function listen, Function alias to iterate through View declared events:
-		*        events: {
-		*         'keyup .search-text': 'search target',
-		*         'click .new': 'submit .todo-value'
-		*     	}
-		* Key contains the jquery event that will be handled for this view at the given css3 selector.
-		* Value is the name of the function that will handle this event in Controller.
-		* IE: '<jquery event> <selector>': '<handler> <jquery element as argument in handler (target is the event context)>'
-		*/
-		SELF_VIEW.listen = function(){
-			underscore.each(SELF_VIEW.events || {}, function(handler, ev){
-				ev = ev.split(" ");
-				handler = handler.split(" ");
-				var context = SELF_VIEW.el.find(handler[1]);
-				SELF_VIEW.el.find(ev[1]).on(ev[0], function(e){
-					if(handler[1] === 'target') context = e.target;
-					SELF_VIEW[handler[0]](e, jquery(context), SELF_VIEW.el);
-				});
-			});
-		}
+    SELF_MODEL.filter = function (k, v) {
+      _filter(k, v, SELF_MODEL);
+    };
 
-    /**
-    * @function SELF_VIEW.invalidate, Function to repaint inner DOM elements.
-    * @param html, String with the whole template.
-    */
-		SELF_VIEW.invalidate = function(html){
-			SELF_VIEW.el = jquery(SELF_VIEW.root);
-			var compiledHtml = underscore.template(html || SELF_VIEW.html);
-			if(SELF_VIEW.scope) compiledHtml = compiledHtml({scope: models[SELF_VIEW.scope].scope});
-			jquery(SELF_VIEW.root).html(compiledHtml);
-			if(!html) listen();
-		}
+    SELF_MODEL.all = function () {
+      _all(SELF_MODEL);
+    };
 
-    /**
-    * @method SELF_VIEW.render, Function alias to render specific view
-    */
-		SELF_VIEW.render = function(){
-		  render(SELF_VIEW);
-		}
-  }
+    SELF_MODEL.sort = function (crit) {
+      _sort(SELF_MODEL, crit);
+    };
 
-  /**
-  * @class Model
-  * Models are Objects with contains application data, they keep data up to date
-  * with the server. Models are entities which represent the behavior of this
-  * entity. A model can contain custom methods to handle its data. IE:
-  * {
-  *   uid: 'todo',
-  *    defaults: {
-  *      id: 0,
-  *      value: '',
-  *      done: 'false',
-  *      timestamp: ''
-  *    },
-  *    sorting: {
-  *      done: 'true'
-  *    },
-  *    methods: {
-  *      sayHello: function(){
-  *        return "hi";
-  *      },
-	*			 summary: function(){
-	*				 return this.get("value") + " created at: " + this.get("timestamp");
-	*			 }
-  *    }
-  *  }
-  * @param prop, preceding Object
-  */
-	var Model = function(prop){
+    SELF_MODEL.fetch = function () {
+      _readInstances(SELF_MODEL);
+    };
 
-    /**
-		* @constant SELF_MODEL, Object which references 'this' inside the View class, avoiding 'this overlap'
-		*/
-		var SELF_MODEL = this;
+    SELF_MODEL.create = function (values, callback) {
+      _createNewInstance(values, callback, SELF_MODEL);
+    };
 
-    /**
-    * @var scopedView, store the view which need this model at view rendering
-    */
-    var scopedView;
+    SELF_MODEL.update = function (i, values, callback) {
+      _updateInstance(i, values, callback, SELF_MODEL)
+    };
 
-    /**
-    * @var SELF_MODEL.cfg, property to reference initial values
-    */
-    SELF_MODEL.cfg = prop;
+    SELF_MODEL.delete = function (i, callback) {
+      _deleteInstance(i, callback, SELF_MODEL)
+    };
 
-		if(typeof SELF_MODEL.cfg.uid === 'undefined') throw new Error('Model must have `uid` property');
+    return Type.call(SELF_MODEL, args);
+  };
 
-    /**
-    * @var SELF_MODEL.uid, String to reference the model as unique key
-    */
-		SELF_MODEL.uid = SELF_MODEL.cfg.uid;
+  var View = function (args) {
+    var SELF_VIEW = this;
+    args.type = TYPES.view;
 
-    /**
-    * @function invalidateScopedView, Function to force the scopedView to render again
-    */
-		var invalidateScopedView = function(){
-		  scopedView = scopedView || underscore.find(views, underscore.matcher({scope: SELF_MODEL.uid}));
-		  if(scopedView){
-			scopedView.invalidate();
-		  }
-		}
+    SELF_VIEW.init = function (html) {
+      SELF_VIEW.set("html", html);
+      if (args.auto) {
+        SELF_VIEW.invalidate();
+      }
+    };
 
-    /**
-    * @method SELF_MODEL.construct, Function to build an instance of the model with the data of the adapter
-    * @param fresh, Object AKA response from the server
-    */
-		SELF_MODEL.construct = function(fresh){
-      /**
-      * @function instance which is the constructor of the class
-      */
-		  var instance = function(){
-				var inst = this;
-				inst.uid = SELF_MODEL.uid;
+    SELF_VIEW.invalidate = function (hardScoped) {
+      SELF_VIEW.clear();
+      SELF_VIEW.set("el", jquery(SELF_VIEW.get("root")));
+      var compiledHtml = ejs.compile(SELF_VIEW.get("html"));
+      if (hardScoped) {
+        compiledHtml = compiledHtml({
+          scope: hardScoped
+        });
+      } else if (SELF_VIEW.get("scope")) {
+        compiledHtml = compiledHtml({
+          scope: models[SELF_VIEW.get("scope")].get("scope")
+        });
+      }
+      jquery(SELF_VIEW.get("root")).html(compiledHtml);
+      SELF_VIEW.listen();
+    };
 
-	      /**
-	      * @var inst.attr is an Object to store defaults properties
-	      */
-				inst.attr = {};
+    SELF_VIEW.listen = function () {
+      _forIn(SELF_VIEW.get("events") || {}, function (handler, ev) {
+        ev = ev.split(" ");
+        handler = handler.split(" ");
+        var context;
+        if (handler.length === 1) context = document;
+        else context = SELF_VIEW.get("el").find(handler[1]);
+        SELF_VIEW.get("el").find(ev[1]).on(ev[0], function (e) {
+          if (handler[1] === "target") context = e.target;
+          SELF_VIEW[handler[0]](SELF_VIEW.get("el"), jquery(
+            context), e);
+        });
+      });
+    };
 
-	      /**
-	      * @method model.get, Function to return a property from the model
-	      */
-				inst.get = function(k){
-				  return inst.attr[k];
-				}
+    SELF_VIEW.render = function () {
+      _render(SELF_VIEW);
+    };
 
-				/**
-				* @method model.set, Function to update a property from the model
-				*/
-				inst.set = function(k, v){
-				  inst.attr[k] = v;
-				}
+    SELF_VIEW.clear = function () {
+      jquery(SELF_VIEW.get("root")).empty();
+    };
 
-				/**
-				* The following two functions fill with properties the current instance,
-				* both methods and values.
-				*/
-				underscore.each(SELF_MODEL.cfg.defaults, function(v, k){
-				  inst.attr[k] = fresh[k] || v;
-				});
-				underscore.each(SELF_MODEL.cfg.methods, function(v, k){
-				  inst[k] = v;
-				});
-		  };
+    return Type.call(SELF_VIEW, args);
+  };
 
-			/**
-			* We return the created instance as an object to store in models array.
-			* This array is injected as a parameter in Controller function.
-			*/
-		  return new instance();
-		}
+  var _getResource = function (uid, resource, callback) {
+    _restAdapter(uid, resource, undefined, callback);
+  };
 
-		/**
-		* @method SELF_MODEL.search, Function to filter collection by some attribute value.
-		* Comparison is done using underscore:filter. However the criteria isn't exclusive.
-		* Meaning that the result collection will contain values that match similar criteria.
-		* Calling this function also invalidate the associated view, if exists.
-		* @param k, key of the property
-		* @param v, needle of the property
-		*/
-		SELF_MODEL.search = function(k, v){
-		  SELF_MODEL.scope = underscore.filter(models[prop.uid].collection, function(m){ return m.get(k).indexOf(v) > -1 });
-		  invalidateScopedView();
-		}
+  var _restAdapter = function (uid, uri, body, call, args, recursiveFn,
+    callback) {
+    var req = uri.split(":");
+    var httpverb;
+    if (req[0] === HTTP.delete || req[0] === HTTP.put || req[0] === HTTP.post)
+      httpverb = req[0];
+    req = req.pop();
+    jquery.ajax({
+      url: req,
+      method: httpverb || HTTP.get,
+      data: body || {},
+      success: function (data) {
+        if (data.token && config.sessionModel === uid) {
+          currentSessionToken = data.token;
+        }
+        call(uid, data);
+        if (typeof recursiveFn !== "undefined") recursiveFn(args,
+          call,
+          callback);
+      },
+      error: function (req, status, errMsg) {
+        // console.log(req);
+        // console.log(status);
+        console.log(errMsg);
+      }
+    });
+  };
 
-		/**
-		* @method SELF_MODEL.filter, Function to filter collection by some attribute value.
-		* Comparison is done using underscore:filter. However the criteria IS exclusive.
-		* Meaning that the result collection will have ONLY values that match the value @param.
-		* Calling this function also invalidate the associated view, if exists.
-		* @param v, value of the property
-		* @param k, key of the property
-		*/
-		SELF_MODEL.filter = function(k, v){
-		  SELF_MODEL.scope = underscore.filter(models[prop.uid].collection, function(m){ return m.get(k) === v });
-		  invalidateScopedView();
-		}
+  var _retrieveSync = function (resourceArray, call, callback) {
+    if (resourceArray.length) {
+      var resource = resourceArray.shift();
+      _restAdapter(resource.uid, resource.uri, undefined, call,
+        resourceArray,
+        _retrieveSync, callback);
+    } else callback();
+  };
 
-		/**
-		* @method SELF_MODEL.all, Function to scope all the model instances, clearing current
-		* filters if they exists.
-		* Calling this function also invalidate the associated view, if exists.
-		*/
-		SELF_MODEL.all = function(){
-		  if(SELF_MODEL.cfg.sorting){
-				SELF_MODEL.sort(SELF_MODEL.cfg.sorting);
-		  }
-		  SELF_MODEL.scope = models[prop.uid].collection;
-		  invalidateScopedView();
-		}
-
-		/**
-		* @method SELF_MODEL.sort, Function sorts a collection.
-		* @param crit, normally accessed by default through the model definition.
-		*/
-		SELF_MODEL.sort = function(crit){
-		  var key = underscore.keys(crit).shift();
-		  var predicate = function(m){ return m.get(key) === crit[key]};
-		  models[prop.uid].collection = underscore.sortBy(models[prop.uid].collection, predicate);
-		}
-
-		/**
-		* @method SELF_MODEL.fetch, Function alias to fetch.
-		*/
-		SELF_MODEL.fetch = function(){
-		  fetch(SELF_MODEL);
-		}
-
-		/**
-		* @method SELF_MODEL.create, Function to create a new instance through user
-		* user input.
-		* @param values, Object with the associative key:values.
-		* @param callback, Function callback can be provided to be handled by the restAdapter.
-		*/
-		SELF_MODEL.create = function(values, callback){
-		  var uri = HTTP.post + ':' + config.api + SELF_MODEL.uid;
-		  restAdapter(SELF_MODEL.uid, uri, values, callback);
-		}
-
-		/**
-		* @method SELF_MODEL.update, Function to update a existing instance in the
-		* collection through user user input.
-		* @param i, integer existing index in the collection.
-		* @param values, Object with the associative key:values.
-		* @param callback, Function callback can be provided to be handled by the restAdapter.
-		*/
-		SELF_MODEL.update = function(i, values, callback){
-		  var uri = HTTP.put + ':' + config.api + SELF_MODEL.uid + '/' + models[prop.uid].collection[i].get('id');
-		  restAdapter(SELF_MODEL.uid, uri, values, callback);
-		}
-
-		/**
-		* @method SELF_MODEL.delete, Function to delete a existing instance in the
-		* collection through user user input.
-		* @param i, integer existing index in the collection.
-		* @param callback, Function callback can be provided to be handled by the restAdapter.
-		*/
-		SELF_MODEL.delete = function(i, callback){
-		  var uri = HTTP.delete + ':' + config.api + SELF_MODEL.uid + '/' + models[prop.uid].collection[i].get('id');
-		  restAdapter(SELF_MODEL.uid, uri, undefined, callback);
-		}
-	}
-
-	/**
-	* @function createModel, Function to create a Model with its default properties.
-	* @param prop, properties predefined.
-	*/
-  var createModel = function(prop){
+  var _createModel = function (prop) {
+    if (prop.session) {
+      config.sessionModel = prop.uid;
+    }
     var tmpmodel = new Model(prop);
-    models[tmpmodel.uid] = tmpmodel;
-    models[tmpmodel.uid].collection = [];
-    modelData.push({uid: tmpmodel.uid, uri: config.api + tmpmodel.uid});
-  }
+    models[tmpmodel.getUID()] = tmpmodel;
+    models[tmpmodel.getUID()].collection = [];
+    if (tmpmodel.get("auto")) {
+      firstModelSync.push({
+        uid: tmpmodel.getUID(),
+        uri: apiHost + tmpmodel.getUID()
+      });
+    }
+  };
 
-	/**
-	* @function createView, Function to create a View with its default properties.
-	* @param prop, properties predefined.
-	*/
-  var createView = function(prop){
+  var _createView = function (prop) {
     var tmpview = new View(prop);
-    views[tmpview.uid] = tmpview;
-    viewTemplates.push({uid: tmpview.uid, uri: tmpview.path });
-  }
+    views[tmpview.getUID()] = tmpview;
+    viewTemplates.push({
+      uid: tmpview.getUID(),
+      uri: tmpview.get("path")
+    });
+  };
 
-	/**
-	* @function fetchModel, Function used to synchronize a Model collection
-	* against the database values obtained through restAdapter.
-	* @param uid, String unique identifier of the model.
-	* @param resp, Object obtained from database.
-	*/
-  var fetchModel = function(uid, resp){
+  var _fetchModel = function (uid, resp) {
     models[uid].collection = [];
-    underscore.each(resp, function(f){
-      models[uid].collection.push(models[uid].construct(f));
+    _forIn(resp, function (f) {
+      models[uid].collection.push(new models[uid].instance(f));
     });
     models[uid].all();
-  }
+  };
 
-		/**
-		* @function renderView, Function used to 'compile' view template, injecting
-		* scoped model if exist, in the DOM. Where root element is defined.
-		* @param uid, String unique identifier of the model.
-		* @param html, String template normally is received from a file.
-		*/
-  var renderView = function(uid, html){
+  var _propertyChangeHandler = function (e) {
+    _forIn(views, function (v) {
+      if (v.get("scope") === e.detail.getUID()) {
+        v.invalidate();
+      }
+    });
+  };
+
+  var _renderView = function (uid, html) {
     views[uid].init(html);
-  }
+  };
 
-	/**
-	* @function fetch, Function used to synchronize a Model collection.
-	* @param m, Object Model instance.
-	*/
-  var fetch = function(m){
-    getResource(m.uid, config.api + m.uid, fetchModel);
-  }
+  var _render = function (v) {
+    _getResource(v.getUID(), v.get("path"), _renderView);
+  };
 
-	/**
-	* @function render, Function used to rebuild a View updating changes if existing.
-	* @param v, Object View instance.
-	*/
-  var render = function(v){
-    getResource(v.iud, v.path, renderView);
-  }
-
-	/**
-	* @function listen, Function to create listeners to predefined events.
-	* @param v, Object View instance.
-	*/
-  var listen = function(v){
+  var _listenEvents = function (v) {
     v.listen();
-  }
+  };
 
-	/**
-	* @method app, Function build the application with the given @param configuration
-	*/
-  SELF_KRASNY.app = function(configuration){
-    config.api = configuration.apihost || '/';
-    underscore.each(configuration.models, createModel);
-    retrieveSync(modelData, fetchModel, function(){
-      underscore.each(configuration.views, createView);
-      retrieveSync(viewTemplates, renderView, function(){
-        configuration.controller(models, views, jquery, underscore);
-        underscore.each(views, listen);
+  var _filter = function (k, v, m) {
+    m.set("scope", m.collection.filter(function (i) {
+      return i.get(k) === v
+    }));
+  };
+
+  var _search = function (k, v, m) {
+    m.set("scope", m.collection.filter(
+      function (i) {
+        return i.get(k).indexOf(v) > -1
+      }));
+  };
+
+  var _all = function (m) {
+    if (m.get("sorting")) {
+      m.sort(m.get("sorting"));
+    }
+    m.set("scope", m.collection);
+  };
+
+  var _sort = function (m, crit) {
+    var key = Object.keys(crit).shift();
+    var predicate = function (a, b) {
+      if (a[key] > b[key]) return 1;
+      if (a[key] > b[key]) return -1;
+      return 0;
+    };
+    m.collection = m.collection.sort(predicate);
+  };
+
+  var _buildModelUrl = function (m) {
+    return m.get("token") ? "?token=" +
+      currentSessionToken : "";
+  };
+
+  var _readInstances = function (m) {
+    _getResource(m.getUID(), apiHost + m.getUID() + _buildModelUrl(m),
+      _fetchModel);
+  };
+
+  var _createNewInstance = function (values, callback, m) {
+    var uri = HTTP.post + ":" + apiHost + m.getUID();
+    _restAdapter(m.getUID(), uri + _buildModelUrl(m), values, callback);
+  };
+
+  var _updateInstance = function (i, values, callback, m) {
+    var uri = HTTP.put + ":" + apiHost + m.getUID() + "/" +
+      m.collection[i].get("id");
+    _restAdapter(m.getUID(), uri + _buildModelUrl(m), values, callback);
+  };
+
+  var _deleteInstance = function (i, callback, m) {
+    var uri = HTTP.delete + ":" + apiHost + m.getUID() +
+      "/" +
+      m.collection[i].get("id");
+    _restAdapter(m.getUID(), uri + _buildModelUrl(m), undefined, callback);
+  };
+
+  var _authModel = function (values, callback, m) {
+    var uri = HTTP.post + ":" + apiHost + "session/" + m.getUID() + "/";
+    _restAdapter(m.getUID(), uri, values, callback);
+  };
+
+  var _modelUpdates = function (m) {
+    document.addEventListener("update", _propertyChangeHandler);
+  };
+
+  var _forIn = function (coll, fn) {
+    Object.keys(coll).forEach(function (o) {
+      fn(coll[o], o);
+    });
+  };
+
+  SELF_KRASNY.app = function (configuration) {
+    config = configuration;
+    apiHost = config.config.api + "/" || "/";
+    configuration.models.forEach(_createModel);
+    _retrieveSync(firstModelSync, _fetchModel, function () {
+      configuration.views.forEach(_createView);
+      _retrieveSync(viewTemplates, _renderView, function () {
+        configuration.controller(models, views, jquery);
+        _modelUpdates();
       });
     });
   }
 }
-if(typeof module !== 'undefined') module.exports = new krasny(require('underscore'), require('jquery')); else window.K = new krasny(_, $);
+if (typeof module !== "undefined") module.exports = new krasny(require(
+    "jquery"),
+  require("ejs"));
+else window.K = new krasny($, ejs);
