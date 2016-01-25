@@ -11,7 +11,7 @@ How to use it.
 
 In browser as script.
 
-> place the script after jquery and underscore. Then follow the guide.
+> place the script after jquery and ejs. Then follow the guide.
 
 As npm package in node or using browserify:
 
