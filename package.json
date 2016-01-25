@@ -20,8 +20,8 @@
   },
   "keywords": [
     "framework",
-    "underscore",
-    "jquery"
+    "jquery",
+    "ejs"
   ],
   "bugs": {
     "url": "https://github.com/ciroreed/krasny/issues"
