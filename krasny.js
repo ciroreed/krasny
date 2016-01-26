@@ -69,7 +69,7 @@ var krasny = function (jquery, ejs) {
       _forIn(SELF_MODEL.get("defaults"), function (v, k) {
         INST.set(k, raw[k] || v, true);
       });
-      _forIn(SELF_MODEL.get("methods"), function (v, k) {
+      _forIn(SELF_MODEL.get("methods") || {}, function (v, k) {
         INST[k] = v;
       });
       return INST;
