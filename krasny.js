@@ -223,6 +223,9 @@ var krasny = function (jquery, ejs) {
   var _createView = function (prop) {
     var tmpview = new View(prop);
     views[tmpview.getUID()] = tmpview;
+    if(tmpview.get("scope")){
+      models[tmpview.get("scope")].set("scopedView", tmpview.getUID());
+    }
     viewTemplates.push({
       uid: tmpview.getUID(),
       uri: tmpview.get("path")
@@ -238,11 +241,10 @@ var krasny = function (jquery, ejs) {
   };
 
   var _propertyChangeHandler = function (e) {
-    _forIn(views, function (v) {
-      if (v.get("scope") === e.detail.getUID()) {
-        v.invalidate();
-      }
-    });
+    var scopedView = models[e.detail.getUID()].get("scopedView");
+    if(scopedView){
+      views[scopedView].invalidate();
+    }
   };
 
   var _renderView = function (uid, html) {
