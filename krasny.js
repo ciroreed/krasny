@@ -279,12 +279,13 @@ var krasny = function (jquery, ejs) {
 
   var _sort = function (m, crit) {
     var key = Object.keys(crit).shift();
-    var predicate = function (a, b) {
-      if (a[key] > b[key]) return 1;
-      if (a[key] > b[key]) return -1;
-      return 0;
-    };
-    m.collection = m.collection.sort(predicate);
+    if(typeof m.get("defaults")[key] === "number"){
+      m.set("scope", m.collection.sort());
+      return;
+    }
+    m.set("scope", m.collection.sort(function(a, b){
+      return a.get(key).localeCompare(b.get(key));
+    }));
   };
 
   var _buildModelUrl = function (m) {
