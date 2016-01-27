@@ -267,7 +267,7 @@ var krasny = function (jquery, ejs) {
   var _fetchModel = function (uid, resp) {
     models[uid].collection = [];
     _forIn(resp, function (f) {
-      models[uid].collection.push(new models[uid].instance(f));
+      models[uid].collection.push(new models[uid].Instance(f));
     });
     models[uid].all();
   };
