@@ -28,6 +28,25 @@ var krasny = function (jquery, ejs) {
     model: "MODEL"
   };
 
+  var LocalStorageAdapter = function(uid){
+    var LOCAL_STORAGE = this;
+    var _storageColl = [];
+
+    LOCAL_STORAGE.read = function(){
+      _fetchModel(uid, _storageColl);
+    };
+    LOCAL_STORAGE.create = function(val){
+      _storageColl.push(val);
+    };
+    LOCAL_STORAGE.update = function(i, val){
+      _storageColl[i] = val;
+    };
+    LOCAL_STORAGE.delete = function(i){
+      delete _storageColl[i];
+    };
+    return LOCAL_STORAGE;
+  };
+
   var Type = function (args) {
     if (!args.uid) throw new Error(args.type +
       " needs an uid predefined property");
@@ -58,13 +77,17 @@ var krasny = function (jquery, ejs) {
     args.type = TYPES.model;
     args.scope = [];
 
+    if(args.local){
+      SELF_MODEL.local = new LocalStorageAdapter(args.uid);
+    }
+
     if (args.session) {
       SELF_MODEL.authenticate = function (values, callback) {
         _authModel(values, callback, SELF_MODEL);
       }
     }
 
-    SELF_MODEL.instance = function (raw) {
+    SELF_MODEL.Instance = function (raw) {
       var INST = Type.call(this, args);
       _forIn(SELF_MODEL.get("defaults"), function (v, k) {
         INST.set(k, raw[k] || v, true);
@@ -123,7 +146,7 @@ var krasny = function (jquery, ejs) {
 
     SELF_VIEW.invalidate = function (hardScoped) {
       SELF_VIEW.clear();
-      SELF_VIEW.set("el", jquery(SELF_VIEW.get("root")));
+      SELF_VIEW.set("el", jquery(SELF_VIEW.get("root")), true);
       var compiledHtml = ejs.compile(SELF_VIEW.get("html"));
       if (hardScoped) {
         compiledHtml = compiledHtml({
@@ -159,6 +182,15 @@ var krasny = function (jquery, ejs) {
 
     SELF_VIEW.clear = function () {
       jquery(SELF_VIEW.get("root")).empty();
+    };
+
+    SELF_VIEW.serializeForm = function(selector){
+      var serializedObject = {};
+      var buildResult = function(inp){
+        serializedObject[inp.name] = inp.value;
+      };
+      SELF_VIEW.get("el").find(selector || "form").serializeArray().forEach(buildResult);
+      return serializedObject
     };
 
     return Type.call(SELF_VIEW, args);
@@ -255,10 +287,6 @@ var krasny = function (jquery, ejs) {
     _getResource(v.getUID(), v.get("path"), _renderView);
   };
 
-  var _listenEvents = function (v) {
-    v.listen();
-  };
-
   var _filter = function (k, v, m) {
     m.set("scope", m.collection.filter(function (i) {
       return i.get(k) === v
@@ -296,22 +324,41 @@ var krasny = function (jquery, ejs) {
   };
 
   var _readInstances = function (m) {
+    if(m.local){
+      m.local.read();
+      return;
+    }
     _getResource(m.getUID(), apiHost + m.getUID() + _buildModelUrl(m),
       _fetchModel);
   };
 
   var _createNewInstance = function (values, callback, m) {
+    if(m.local){
+      m.local.create(values);
+      callback();
+      return;
+    }
     var uri = HTTP.post + ":" + apiHost + m.getUID();
     _restAdapter(m.getUID(), uri + _buildModelUrl(m), values, callback);
   };
 
   var _updateInstance = function (i, values, callback, m) {
+    if(m.local){
+      m.local.update(i, values);
+      callback();
+      return;
+    }
     var uri = HTTP.put + ":" + apiHost + m.getUID() + "/" +
       m.collection[i].get("id");
     _restAdapter(m.getUID(), uri + _buildModelUrl(m), values, callback);
   };
 
   var _deleteInstance = function (i, callback, m) {
+    if(m.local){
+      m.local.delete(i)
+      callback();
+      return;
+    }
     var uri = HTTP.delete + ":" + apiHost + m.getUID() +
       "/" +
       m.collection[i].get("id");
@@ -345,7 +392,8 @@ var krasny = function (jquery, ejs) {
       });
     });
   }
-}
+};
+
 if (typeof module !== "undefined") module.exports = new krasny(require(
     "jquery"),
   require("ejs"));
