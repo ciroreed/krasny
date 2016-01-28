@@ -209,13 +209,14 @@ var krasny = function (jquery, ejs) {
     } else callback();
   };
 
-  var _createModel = function (prop) {
+  var _createModel = function (prop, uid) {
+    prop["uid"] = uid;
     if (prop.session) {
       config.sessionModel = prop.uid;
     }
     var tmpmodel = new Model(prop);
-    models[tmpmodel.getUID()] = tmpmodel;
-    models[tmpmodel.getUID()].collection = [];
+    models[uid] = tmpmodel;
+    models[uid].collection = [];
     if (tmpmodel.get("auto")) {
       firstModelSync.push({
         uid: tmpmodel.getUID(),
@@ -224,7 +225,8 @@ var krasny = function (jquery, ejs) {
     }
   };
 
-  var _createView = function (prop) {
+  var _createView = function (prop, uid) {
+    prop["uid"] = uid;
     var tmpview = new View(prop);
     views[tmpview.getUID()] = tmpview;
     if (tmpview.get("scope")) {
@@ -476,9 +478,9 @@ var krasny = function (jquery, ejs) {
 
     _requiredKeys.forEach(_checkRequiredKeys);
 
-    SELF_KRASNY.get("models").forEach(_createModel);
+    _forIn(SELF_KRASNY.get("models"), _createModel);
     _retrieveSync(firstModelSync, _fetchModel, function () {
-      SELF_KRASNY.get("views").forEach(_createView);
+      _forIn(SELF_KRASNY.get("views"), _createView);
       _retrieveSync(viewTemplates, _renderView, function () {
         _forIn(SELF_KRASNY.get("controllers"), _prepareRoutes);
         window.location.hash = "/";
@@ -488,6 +490,8 @@ var krasny = function (jquery, ejs) {
       });
     });
   };
+
+  ejs.delimiter = '?';
 
   return Type.call(SELF_KRASNY, MAIN);
 };
