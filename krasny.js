@@ -6,15 +6,15 @@ var krasny = function (jquery, ejs) {
 
   var views = {};
 
-  var config = {};
-
   var firstModelSync = [];
 
   var viewTemplates = [];
 
   var currentSessionToken;
 
-  var apiHost;
+  var MAIN = {
+    uid: "main-app"
+  };
 
   var HTTP = {
     get: "GET",
@@ -28,20 +28,20 @@ var krasny = function (jquery, ejs) {
     model: "MODEL"
   };
 
-  var LocalStorageAdapter = function(uid){
+  var LocalStorageAdapter = function (uid) {
     var LOCAL_STORAGE = this;
     var _storageColl = [];
 
-    LOCAL_STORAGE.read = function(){
+    LOCAL_STORAGE.read = function () {
       _fetchModel(uid, _storageColl);
     };
-    LOCAL_STORAGE.create = function(val){
+    LOCAL_STORAGE.create = function (val) {
       _storageColl.push(val);
     };
-    LOCAL_STORAGE.update = function(i, val){
+    LOCAL_STORAGE.update = function (i, val) {
       _storageColl[i] = val;
     };
-    LOCAL_STORAGE.delete = function(i){
+    LOCAL_STORAGE.delete = function (i) {
       delete _storageColl[i];
     };
     return LOCAL_STORAGE;
@@ -77,7 +77,7 @@ var krasny = function (jquery, ejs) {
     args.type = TYPES.model;
     args.scope = [];
 
-    if(args.local){
+    if (args.local) {
       SELF_MODEL.local = new LocalStorageAdapter(args.uid);
     }
 
@@ -114,6 +114,10 @@ var krasny = function (jquery, ejs) {
       _sort(SELF_MODEL, crit);
     };
 
+    SELF_MODEL.getInstance = function(crit){
+      return _getInstance(SELF_MODEL, crit);
+    }
+
     SELF_MODEL.fetch = function () {
       _readInstances(SELF_MODEL);
     };
@@ -139,41 +143,14 @@ var krasny = function (jquery, ejs) {
 
     SELF_VIEW.init = function (html) {
       SELF_VIEW.set("html", html);
-      if (args.auto) {
-        SELF_VIEW.invalidate();
-      }
     };
 
-    SELF_VIEW.invalidate = function (hardScoped) {
-      SELF_VIEW.clear();
-      SELF_VIEW.set("el", jquery(SELF_VIEW.get("root")), true);
-      var compiledHtml = ejs.compile(SELF_VIEW.get("html"));
-      if (hardScoped) {
-        compiledHtml = compiledHtml({
-          scope: hardScoped
-        });
-      } else if (SELF_VIEW.get("scope")) {
-        compiledHtml = compiledHtml({
-          scope: models[SELF_VIEW.get("scope")].get("scope")
-        });
-      }
-      jquery(SELF_VIEW.get("root")).html(compiledHtml);
-      SELF_VIEW.listen();
+    SELF_VIEW.invalidate = function(hardScoped){
+      _invalidate(SELF_VIEW, undefined, hardScoped);
     };
 
     SELF_VIEW.listen = function () {
-      _forIn(SELF_VIEW.get("events") || {}, function (handler, ev) {
-        ev = ev.split(" ");
-        handler = handler.split(" ");
-        var context;
-        if (handler.length === 1) context = document;
-        else context = SELF_VIEW.get("el").find(handler[1]);
-        SELF_VIEW.get("el").find(ev[1]).on(ev[0], function (e) {
-          if (handler[1] === "target") context = e.target;
-          SELF_VIEW[handler[0]](SELF_VIEW.get("el"), jquery(
-            context), e);
-        });
-      });
+      _listen(SELF_VIEW);
     };
 
     SELF_VIEW.render = function () {
@@ -181,16 +158,11 @@ var krasny = function (jquery, ejs) {
     };
 
     SELF_VIEW.clear = function () {
-      jquery(SELF_VIEW.get("root")).empty();
+      _clear(SELF_VIEW);
     };
 
-    SELF_VIEW.serializeForm = function(selector){
-      var serializedObject = {};
-      var buildResult = function(inp){
-        serializedObject[inp.name] = inp.value;
-      };
-      SELF_VIEW.get("el").find(selector || "form").serializeArray().forEach(buildResult);
-      return serializedObject
+    SELF_VIEW.serializeForm = function (selector) {
+      return _serializeForm(SELF_VIEW, selector);
     };
 
     return Type.call(SELF_VIEW, args);
@@ -237,25 +209,27 @@ var krasny = function (jquery, ejs) {
     } else callback();
   };
 
-  var _createModel = function (prop) {
+  var _createModel = function (prop, uid) {
+    prop["uid"] = uid;
     if (prop.session) {
       config.sessionModel = prop.uid;
     }
     var tmpmodel = new Model(prop);
-    models[tmpmodel.getUID()] = tmpmodel;
-    models[tmpmodel.getUID()].collection = [];
+    models[uid] = tmpmodel;
+    models[uid].collection = [];
     if (tmpmodel.get("auto")) {
       firstModelSync.push({
         uid: tmpmodel.getUID(),
-        uri: apiHost + tmpmodel.getUID()
+        uri: SELF_KRASNY.get("config").api + tmpmodel.getUID()
       });
     }
   };
 
-  var _createView = function (prop) {
+  var _createView = function (prop, uid) {
+    prop["uid"] = uid;
     var tmpview = new View(prop);
     views[tmpview.getUID()] = tmpview;
-    if(tmpview.get("scope")){
+    if (tmpview.get("scope")) {
       models[tmpview.get("scope")].set("scopedView", tmpview.getUID());
     }
     viewTemplates.push({
@@ -274,7 +248,7 @@ var krasny = function (jquery, ejs) {
 
   var _propertyChangeHandler = function (e) {
     var scopedView = models[e.detail.getUID()].get("scopedView");
-    if(scopedView){
+    if (scopedView) {
       views[scopedView].invalidate();
     }
   };
@@ -286,6 +260,52 @@ var krasny = function (jquery, ejs) {
   var _render = function (v) {
     _getResource(v.getUID(), v.get("path"), _renderView);
   };
+
+  var _listen = function(v){
+    _forIn(v.get("events") || {}, function (handler, ev) {
+      ev = ev.split(" ");
+      handler = handler.split(" ");
+      var context;
+      if (handler.length === 1) context = document;
+      else context = v.get("el").find(handler[1]);
+      v.get("el").find(ev[1]).on(ev[0], function (e) {
+        if (handler[1] === "target") context = e.target;
+        v[handler[0]](v.get("el"), jquery(
+          context), e);
+      });
+    });
+  }
+
+  var _clear = function (v) {
+    jquery(v.get("root")).empty();
+  };
+
+  var _serializeForm = function(v, selector){
+    var serializedObject = {};
+    var buildResult = function (inp) {
+      serializedObject[inp.name] = inp.value;
+    };
+    v.get("el").find(selector || "form").serializeArray().forEach(
+      buildResult);
+    return serializedObject;
+  }
+
+  var _invalidate = function(v, i, hardScoped){
+    v.clear();
+    v.set("el", jquery(v.get("root")), true);
+    var compiledHtml = ejs.compile(v.get("html"));
+    if (hardScoped) {
+      compiledHtml = compiledHtml({
+        scope: hardScoped
+      });
+    } else if (v.get("scope")) {
+      compiledHtml = compiledHtml({
+        scope: models[v.get("scope")].get("scope")
+      });
+    }
+    jquery(v.get("root")).html(compiledHtml);
+    v.listen();
+  }
 
   var _filter = function (k, v, m) {
     m.set("scope", m.collection.filter(function (i) {
@@ -309,14 +329,23 @@ var krasny = function (jquery, ejs) {
 
   var _sort = function (m, crit) {
     var key = Object.keys(crit).shift();
-    if(typeof m.get("defaults")[key] === "number"){
+    if (typeof m.get("defaults")[key] === "number") {
       m.set("scope", m.collection.sort());
       return;
     }
-    m.set("scope", m.collection.sort(function(a, b){
+    m.set("scope", m.collection.sort(function (a, b) {
       return a.get(key).localeCompare(b.get(key));
     }));
   };
+
+  var _getInstance = function(m, crit){
+    var key = Object.keys(crit).shift();
+    var result  = m.collection.filter(
+      function (i) {
+        return i.get(key) === crit[key]
+      });
+    return result.shift();
+  }
 
   var _buildModelUrl = function (m) {
     return m.get("token") ? "?token=" +
@@ -324,49 +353,52 @@ var krasny = function (jquery, ejs) {
   };
 
   var _readInstances = function (m) {
-    if(m.local){
+    if (m.local) {
       m.local.read();
       return;
     }
-    _getResource(m.getUID(), apiHost + m.getUID() + _buildModelUrl(m),
+    _getResource(m.getUID(), SELF_KRASNY.get("config").api + m.getUID() +
+      _buildModelUrl(m),
       _fetchModel);
   };
 
   var _createNewInstance = function (values, callback, m) {
-    if(m.local){
+    if (m.local) {
       m.local.create(values);
       callback();
       return;
     }
-    var uri = HTTP.post + ":" + apiHost + m.getUID();
+    var uri = HTTP.post + ":" + SELF_KRASNY.get("config").api + m.getUID();
     _restAdapter(m.getUID(), uri + _buildModelUrl(m), values, callback);
   };
 
   var _updateInstance = function (i, values, callback, m) {
-    if(m.local){
+    if (m.local) {
       m.local.update(i, values);
       callback();
       return;
     }
-    var uri = HTTP.put + ":" + apiHost + m.getUID() + "/" +
+    var uri = HTTP.put + ":" + SELF_KRASNY.get("config").api + m.getUID() +
+      "/" +
       m.collection[i].get("id");
     _restAdapter(m.getUID(), uri + _buildModelUrl(m), values, callback);
   };
 
   var _deleteInstance = function (i, callback, m) {
-    if(m.local){
+    if (m.local) {
       m.local.delete(i)
       callback();
       return;
     }
-    var uri = HTTP.delete + ":" + apiHost + m.getUID() +
+    var uri = HTTP.delete + ":" + SELF_KRASNY.get("config").api + m.getUID() +
       "/" +
       m.collection[i].get("id");
     _restAdapter(m.getUID(), uri + _buildModelUrl(m), undefined, callback);
   };
 
   var _authModel = function (values, callback, m) {
-    var uri = HTTP.post + ":" + apiHost + "session/" + m.getUID() + "/";
+    var uri = HTTP.post + ":" + SELF_KRASNY.get("config").api + "session/" +
+      m.getUID() + "/";
     _restAdapter(m.getUID(), uri, values, callback);
   };
 
@@ -380,18 +412,88 @@ var krasny = function (jquery, ejs) {
     });
   };
 
-  SELF_KRASNY.app = function (configuration) {
-    config = configuration;
-    apiHost = config.config.api + "/" || "/";
-    configuration.models.forEach(_createModel);
+  SELF_KRASNY.start = function () {
+    var _controllerMatcherArr = [];
+
+    var _checkRequiredKeys = function (k) {
+      if (!SELF_KRASNY.get(k)) throw new Error(k +
+        " is not defined in main app");
+    };
+
+    var _prepareRoutes = function (controller, name) {
+      var _parts;
+      var _params;
+      var _result;
+      if (controller.route === "/") {
+        _params = {};
+        _result = new RegExp("\/");
+      } else {
+        _parts = controller.route.split("/");
+        _params = _parts.filter(function (x) {
+          return x.search(":") === 0
+        });
+        _params = _params.map(function (x) {
+          return x.replace(":", "")
+        });
+        _result = new RegExp(_parts.join("\/").replace(/:[a-z]+/g,
+          "(.+)"))
+      }
+      _controllerMatcherArr.push({
+        regex: _result,
+        paramList: _params,
+        loadViews: controller.load || [],
+        func: controller.context
+      });
+    };
+
+    var _initController = function (e) {
+      var _newHash;
+      var _hashParams = {};
+      if (e) {
+        _newHash = e.newURL.split("#").pop();
+      } else {
+        _newHash = "/";
+      }
+      _controllerMatcherArr.forEach(function (contMatch, i) {
+        if (!contMatch.regex.test(_newHash)) {
+          if (_controllerMatcherArr.length === i + 1) {
+            window.location.hash = "/";
+          }
+          return;
+        } else {
+          var _matches = contMatch.regex.exec(_newHash);
+          _matches.shift();
+          _matches.forEach(function (mat, i) {
+            _hashParams[contMatch.paramList[i]] = mat;
+          });
+          _forIn(views, _clear);
+          var contextViews = contMatch.loadViews.map(function(vuid){ return views[vuid] });
+          _forIn(contextViews, _invalidate);
+          contMatch.func(models, views, $, _hashParams);
+        }
+      });
+    };
+
+    var _requiredKeys = ["views", "models", "config", "controllers"];
+
+    _requiredKeys.forEach(_checkRequiredKeys);
+
+    _forIn(SELF_KRASNY.get("models"), _createModel);
     _retrieveSync(firstModelSync, _fetchModel, function () {
-      configuration.views.forEach(_createView);
+      _forIn(SELF_KRASNY.get("views"), _createView);
       _retrieveSync(viewTemplates, _renderView, function () {
-        configuration.controller(models, views, jquery);
+        _forIn(SELF_KRASNY.get("controllers"), _prepareRoutes);
+        window.location.hash = "/";
+        window.onhashchange = _initController;
         _modelUpdates();
+        _initController({newURL: window.location.href});
       });
     });
-  }
+  };
+
+  ejs.delimiter = '?';
+
+  return Type.call(SELF_KRASNY, MAIN);
 };
 
 if (typeof module !== "undefined") module.exports = new krasny(require(
