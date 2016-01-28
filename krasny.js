@@ -114,6 +114,10 @@ var krasny = function (jquery, ejs) {
       _sort(SELF_MODEL, crit);
     };
 
+    SELF_MODEL.getInstance = function(crit){
+      return _getInstance(SELF_MODEL, crit);
+    }
+
     SELF_MODEL.fetch = function () {
       _readInstances(SELF_MODEL);
     };
@@ -139,41 +143,14 @@ var krasny = function (jquery, ejs) {
 
     SELF_VIEW.init = function (html) {
       SELF_VIEW.set("html", html);
-      if (args.auto) {
-        SELF_VIEW.invalidate();
-      }
     };
 
-    SELF_VIEW.invalidate = function (hardScoped) {
-      SELF_VIEW.clear();
-      SELF_VIEW.set("el", jquery(SELF_VIEW.get("root")), true);
-      var compiledHtml = ejs.compile(SELF_VIEW.get("html"));
-      if (hardScoped) {
-        compiledHtml = compiledHtml({
-          scope: hardScoped
-        });
-      } else if (SELF_VIEW.get("scope")) {
-        compiledHtml = compiledHtml({
-          scope: models[SELF_VIEW.get("scope")].get("scope")
-        });
-      }
-      jquery(SELF_VIEW.get("root")).html(compiledHtml);
-      SELF_VIEW.listen();
+    SELF_VIEW.invalidate = function(hardScoped){
+      _invalidate(SELF_VIEW, undefined, hardScoped);
     };
 
     SELF_VIEW.listen = function () {
-      _forIn(SELF_VIEW.get("events") || {}, function (handler, ev) {
-        ev = ev.split(" ");
-        handler = handler.split(" ");
-        var context;
-        if (handler.length === 1) context = document;
-        else context = SELF_VIEW.get("el").find(handler[1]);
-        SELF_VIEW.get("el").find(ev[1]).on(ev[0], function (e) {
-          if (handler[1] === "target") context = e.target;
-          SELF_VIEW[handler[0]](SELF_VIEW.get("el"), jquery(
-            context), e);
-        });
-      });
+      _listen(SELF_VIEW);
     };
 
     SELF_VIEW.render = function () {
@@ -185,13 +162,7 @@ var krasny = function (jquery, ejs) {
     };
 
     SELF_VIEW.serializeForm = function (selector) {
-      var serializedObject = {};
-      var buildResult = function (inp) {
-        serializedObject[inp.name] = inp.value;
-      };
-      SELF_VIEW.get("el").find(selector || "form").serializeArray().forEach(
-        buildResult);
-      return serializedObject
+      return _serializeForm(SELF_VIEW, selector);
     };
 
     return Type.call(SELF_VIEW, args);
@@ -288,9 +259,51 @@ var krasny = function (jquery, ejs) {
     _getResource(v.getUID(), v.get("path"), _renderView);
   };
 
+  var _listen = function(v){
+    _forIn(v.get("events") || {}, function (handler, ev) {
+      ev = ev.split(" ");
+      handler = handler.split(" ");
+      var context;
+      if (handler.length === 1) context = document;
+      else context = v.get("el").find(handler[1]);
+      v.get("el").find(ev[1]).on(ev[0], function (e) {
+        if (handler[1] === "target") context = e.target;
+        v[handler[0]](v.get("el"), jquery(
+          context), e);
+      });
+    });
+  }
+
   var _clear = function (v) {
     jquery(v.get("root")).empty();
   };
+
+  var _serializeForm = function(v, selector){
+    var serializedObject = {};
+    var buildResult = function (inp) {
+      serializedObject[inp.name] = inp.value;
+    };
+    v.get("el").find(selector || "form").serializeArray().forEach(
+      buildResult);
+    return serializedObject;
+  }
+
+  var _invalidate = function(v, i, hardScoped){
+    v.clear();
+    v.set("el", jquery(v.get("root")), true);
+    var compiledHtml = ejs.compile(v.get("html"));
+    if (hardScoped) {
+      compiledHtml = compiledHtml({
+        scope: hardScoped
+      });
+    } else if (v.get("scope")) {
+      compiledHtml = compiledHtml({
+        scope: models[v.get("scope")].get("scope")
+      });
+    }
+    jquery(v.get("root")).html(compiledHtml);
+    v.listen();
+  }
 
   var _filter = function (k, v, m) {
     m.set("scope", m.collection.filter(function (i) {
@@ -322,6 +335,15 @@ var krasny = function (jquery, ejs) {
       return a.get(key).localeCompare(b.get(key));
     }));
   };
+
+  var _getInstance = function(m, crit){
+    var key = Object.keys(crit).shift();
+    var result  = m.collection.filter(
+      function (i) {
+        return i.get(key) === crit[key]
+      });
+    return result.shift();
+  }
 
   var _buildModelUrl = function (m) {
     return m.get("token") ? "?token=" +
@@ -396,15 +418,15 @@ var krasny = function (jquery, ejs) {
         " is not defined in main app");
     };
 
-    var _prepareRoutes = function (controller, route) {
+    var _prepareRoutes = function (controller, name) {
       var _parts;
       var _params;
       var _result;
-      if (route === "/") {
+      if (controller.route === "/") {
         _params = {};
         _result = new RegExp("\/");
       } else {
-        _parts = route.split("/");
+        _parts = controller.route.split("/");
         _params = _parts.filter(function (x) {
           return x.search(":") === 0
         });
@@ -417,7 +439,8 @@ var krasny = function (jquery, ejs) {
       _controllerMatcherArr.push({
         regex: _result,
         paramList: _params,
-        func: controller
+        loadViews: controller.load || [],
+        func: controller.context
       });
     };
 
@@ -442,6 +465,8 @@ var krasny = function (jquery, ejs) {
             _hashParams[contMatch.paramList[i]] = mat;
           });
           _forIn(views, _clear);
+          var contextViews = contMatch.loadViews.map(function(vuid){ return views[vuid] });
+          _forIn(contextViews, _invalidate);
           contMatch.func(models, views, $, _hashParams);
         }
       });
@@ -459,7 +484,7 @@ var krasny = function (jquery, ejs) {
         window.location.hash = "/";
         window.onhashchange = _initController;
         _modelUpdates();
-        _initController();
+        _initController({newURL: window.location.href});
       });
     });
   };
