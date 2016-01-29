@@ -1,6 +1,6 @@
 {
   "name": "krasny",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "early framework",
   "main": "krasny.js",
   "license": "MIT",
@@ -9,7 +9,6 @@
     "postpublish": "git push origin master"
   },
   "author": "ciroreed",
-  "license": "MIT",
   "dependencies": {
     "ejs": "^2.3.4",
     "jquery": "^2.1.4"
