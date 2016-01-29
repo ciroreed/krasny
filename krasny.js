@@ -85,6 +85,10 @@ var krasny = function (jquery, ejs) {
       SELF_MODEL.authenticate = function (values, callback) {
         _authModel(values, callback, SELF_MODEL);
       }
+
+      SELF_MODEL.isAuth = function(){
+        return currentSessionToken !== undefined;
+      }
     }
 
     SELF_MODEL.Instance = function (raw) {
@@ -114,7 +118,7 @@ var krasny = function (jquery, ejs) {
       _sort(SELF_MODEL, crit);
     };
 
-    SELF_MODEL.getInstance = function(crit){
+    SELF_MODEL.getInstance = function (crit) {
       return _getInstance(SELF_MODEL, crit);
     }
 
@@ -145,7 +149,7 @@ var krasny = function (jquery, ejs) {
       SELF_VIEW.set("html", html);
     };
 
-    SELF_VIEW.invalidate = function(hardScoped){
+    SELF_VIEW.invalidate = function (hardScoped) {
       _invalidate(SELF_VIEW, undefined, hardScoped);
     };
 
@@ -261,7 +265,7 @@ var krasny = function (jquery, ejs) {
     _getResource(v.getUID(), v.get("path"), _renderView);
   };
 
-  var _listen = function(v){
+  var _listen = function (v) {
     _forIn(v.get("events") || {}, function (handler, ev) {
       ev = ev.split(" ");
       handler = handler.split(" ");
@@ -280,7 +284,7 @@ var krasny = function (jquery, ejs) {
     jquery(v.get("root")).empty();
   };
 
-  var _serializeForm = function(v, selector){
+  var _serializeForm = function (v, selector) {
     var serializedObject = {};
     var buildResult = function (inp) {
       serializedObject[inp.name] = inp.value;
@@ -290,7 +294,7 @@ var krasny = function (jquery, ejs) {
     return serializedObject;
   }
 
-  var _invalidate = function(v, i, hardScoped){
+  var _invalidate = function (v, i, hardScoped) {
     v.clear();
     v.set("el", jquery(v.get("root")), true);
     var compiledHtml = ejs.compile(v.get("html"));
@@ -338,9 +342,9 @@ var krasny = function (jquery, ejs) {
     }));
   };
 
-  var _getInstance = function(m, crit){
+  var _getInstance = function (m, crit) {
     var key = Object.keys(crit).shift();
-    var result  = m.collection.filter(
+    var result = m.collection.filter(
       function (i) {
         return i.get(key) === crit[key]
       });
@@ -467,7 +471,9 @@ var krasny = function (jquery, ejs) {
             _hashParams[contMatch.paramList[i]] = mat;
           });
           _forIn(views, _clear);
-          var contextViews = contMatch.loadViews.map(function(vuid){ return views[vuid] });
+          var contextViews = contMatch.loadViews.map(function (vuid) {
+            return views[vuid]
+          });
           _forIn(contextViews, _invalidate);
           contMatch.func(models, views, $, _hashParams);
         }
@@ -486,7 +492,9 @@ var krasny = function (jquery, ejs) {
         window.location.hash = "/";
         window.onhashchange = _initController;
         _modelUpdates();
-        _initController({newURL: window.location.href});
+        _initController({
+          newURL: window.location.href
+        });
       });
     });
   };

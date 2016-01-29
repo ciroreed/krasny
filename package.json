@@ -3,6 +3,7 @@
   "version": "1.2.0",
   "description": "early framework",
   "main": "krasny.js",
+  "license": "MIT",
   "scripts": {
     "install": "uglifyjs krasny.js > krasny.min.js",
     "postpublish": "git push origin master"
