@@ -1,4 +1,4 @@
-var krasny = function (jquery, ejs) {
+var krasny = function (ejs) {
 
   var SELF_KRASNY = this;
 
@@ -12,15 +12,21 @@ var krasny = function (jquery, ejs) {
 
   var currentSessionToken;
 
+  var _controllerMatcherArr = [];
+
   var MAIN = {
     uid: "main-app"
   };
 
-  var HTTP = {
-    get: "GET",
-    post: "POST",
-    put: "PUT",
-    delete: "DELETE"
+  var METHODS = {
+    read: "GET",
+    create: "POST",
+    update: "PUT",
+    delete: "DELETE",
+    GET: "read",
+    POST: "create",
+    PUT: "update",
+    DELETE: "delete"
   };
 
   var TYPES = {
@@ -51,7 +57,7 @@ var krasny = function (jquery, ejs) {
     if (!args.uid) throw new Error(args.type +
       " needs an uid predefined property");
     var SELF_TYPE = this;
-    var _changeEvent = new CustomEvent("update", {
+    var _changeEvent = new CustomEvent(METHODS.PUT, {
       detail: SELF_TYPE
     });
     var _UID = args.uid;
@@ -86,7 +92,7 @@ var krasny = function (jquery, ejs) {
         _authModel(values, callback, SELF_MODEL);
       }
 
-      SELF_MODEL.isAuth = function(){
+      SELF_MODEL.isAuth = function () {
         return currentSessionToken !== undefined;
       }
     }
@@ -165,8 +171,8 @@ var krasny = function (jquery, ejs) {
       _clear(SELF_VIEW);
     };
 
-    SELF_VIEW.serializeForm = function (selector) {
-      return _serializeForm(SELF_VIEW, selector);
+    SELF_VIEW.getFormData = function (selector) {
+      return _getFormData(SELF_VIEW, selector);
     };
 
     return Type.call(SELF_VIEW, args);
@@ -176,32 +182,40 @@ var krasny = function (jquery, ejs) {
     _restAdapter(uid, resource, undefined, callback);
   };
 
-  var _restAdapter = function (uid, uri, body, call, args, recursiveFn,
+  var _restAdapter = function (uid, uri, bodyData, call, args, recursiveFn,
     callback) {
-    var req = uri.split(":");
-    var httpverb;
-    if (req[0] === HTTP.delete || req[0] === HTTP.put || req[0] === HTTP.post)
-      httpverb = req[0];
-    req = req.pop();
-    jquery.ajax({
-      url: req,
-      method: httpverb || HTTP.get,
-      data: body || {},
-      success: function (data) {
-        if (data.token && config.sessionModel === uid) {
-          currentSessionToken = data.token;
+
+    var xhttp = new XMLHttpRequest();
+    var stateChanged = function () {
+      if (xhttp.readyState == 4) {
+        switch (xhttp.status) {
+          case 200:
+            var data;
+            try {
+              data = JSON.parse(xhttp.responseText);
+            } catch (e) {
+              data = xhttp.responseText;
+            }
+            if (typeof data === "object" && data.token && SELF_KRASNY.get(
+                "sessionModel") === uid) {
+              currentSessionToken = data.token;
+            }
+            call(uid, data);
+            if (typeof recursiveFn !== "undefined") recursiveFn(args,
+              call,
+              callback);
+            break;
+          default:
+            console.log(xhttp.status);
         }
-        call(uid, data);
-        if (typeof recursiveFn !== "undefined") recursiveFn(args,
-          call,
-          callback);
-      },
-      error: function (req, status, errMsg) {
-        // console.log(req);
-        // console.log(status);
-        console.log(errMsg);
       }
-    });
+    }
+    var req = uri.split(":");
+    var httpverb = METHODS[req[0]];
+    req = req.pop();
+    xhttp.onreadystatechange = stateChanged;
+    xhttp.open(httpverb || METHODS.read, req, true);
+    xhttp.send(bodyData);
   };
 
   var _retrieveSync = function (resourceArray, call, callback) {
@@ -216,7 +230,7 @@ var krasny = function (jquery, ejs) {
   var _createModel = function (prop, uid) {
     prop["uid"] = uid;
     if (prop.session) {
-      config.sessionModel = prop.uid;
+      SELF_KRASNY.set("sessionModel", prop.uid, true);
     }
     var tmpmodel = new Model(prop);
     models[uid] = tmpmodel;
@@ -269,34 +283,30 @@ var krasny = function (jquery, ejs) {
     _forIn(v.get("events") || {}, function (handler, ev) {
       ev = ev.split(" ");
       handler = handler.split(" ");
-      var context;
-      if (handler.length === 1) context = document;
-      else context = v.get("el").find(handler[1]);
-      v.get("el").find(ev[1]).on(ev[0], function (e) {
-        if (handler[1] === "target") context = e.target;
-        v[handler[0]](v.get("el"), jquery(
-          context), e);
+      _forIn(v.get("el").querySelectorAll(ev[1]), function (htmlElement,
+        k) {
+        if (typeof htmlElement === "object") {
+          htmlElement.addEventListener(ev[0], function (e) {
+            v[handler[0]](v.get("el"), e.target, e);
+          });
+        }
       });
     });
   }
 
   var _clear = function (v) {
-    jquery(v.get("root")).empty();
+    if (v.get("el")) {
+      v.get("el").innerHTML = "";
+    }
   };
 
-  var _serializeForm = function (v, selector) {
-    var serializedObject = {};
-    var buildResult = function (inp) {
-      serializedObject[inp.name] = inp.value;
-    };
-    v.get("el").find(selector || "form").serializeArray().forEach(
-      buildResult);
-    return serializedObject;
+  var _getFormData = function (v, selector) {
+    return new FormData(v.get("el").querySelector(selector || "form"));
   }
 
   var _invalidate = function (v, i, hardScoped) {
     v.clear();
-    v.set("el", jquery(v.get("root")), true);
+    v.set("el", document.body.querySelector(v.get("root")), true);
     var compiledHtml = ejs.compile(v.get("html"));
     if (hardScoped) {
       compiledHtml = compiledHtml({
@@ -306,8 +316,10 @@ var krasny = function (jquery, ejs) {
       compiledHtml = compiledHtml({
         scope: models[v.get("scope")].get("scope")
       });
+    } else {
+      compiledHtml = compiledHtml();
     }
-    jquery(v.get("root")).html(compiledHtml);
+    v.get("el").innerHTML = compiledHtml;
     v.listen();
   }
 
@@ -343,17 +355,15 @@ var krasny = function (jquery, ejs) {
   };
 
   var _getInstance = function (m, crit) {
+    if (typeof crit === "number") {
+      return m.collection[crit]
+    }
     var key = Object.keys(crit).shift();
     var result = m.collection.filter(
       function (i) {
         return i.get(key) === crit[key]
       });
     return result.shift();
-  }
-
-  var _buildModelUrl = function (m) {
-    return m.get("token") ? "?token=" +
-      currentSessionToken : "";
   };
 
   var _readInstances = function (m) {
@@ -361,8 +371,7 @@ var krasny = function (jquery, ejs) {
       m.local.read();
       return;
     }
-    _getResource(m.getUID(), SELF_KRASNY.get("config").api + m.getUID() +
-      _buildModelUrl(m),
+    _getResource(m.getUID(), _formatURI(METHODS.GET, m),
       _fetchModel);
   };
 
@@ -372,8 +381,7 @@ var krasny = function (jquery, ejs) {
       callback();
       return;
     }
-    var uri = HTTP.post + ":" + SELF_KRASNY.get("config").api + m.getUID();
-    _restAdapter(m.getUID(), uri + _buildModelUrl(m), values, callback);
+    _restAdapter(m.getUID(), _formatURI(METHODS.POST, m), values, callback);
   };
 
   var _updateInstance = function (i, values, callback, m) {
@@ -382,10 +390,7 @@ var krasny = function (jquery, ejs) {
       callback();
       return;
     }
-    var uri = HTTP.put + ":" + SELF_KRASNY.get("config").api + m.getUID() +
-      "/" +
-      m.collection[i].get("id");
-    _restAdapter(m.getUID(), uri + _buildModelUrl(m), values, callback);
+    _restAdapter(m.getUID(), _formatURI(METHODS.PUT, m, false, i), values, callback);
   };
 
   var _deleteInstance = function (i, callback, m) {
@@ -394,20 +399,31 @@ var krasny = function (jquery, ejs) {
       callback();
       return;
     }
-    var uri = HTTP.delete + ":" + SELF_KRASNY.get("config").api + m.getUID() +
-      "/" +
-      m.collection[i].get("id");
-    _restAdapter(m.getUID(), uri + _buildModelUrl(m), undefined, callback);
+    _restAdapter(m.getUID(), _formatURI(METHODS.DELETE, m, false, i), undefined,
+      callback);
   };
 
   var _authModel = function (values, callback, m) {
-    var uri = HTTP.post + ":" + SELF_KRASNY.get("config").api + "session/" +
-      m.getUID() + "/";
-    _restAdapter(m.getUID(), uri, values, callback);
+    _restAdapter(m.getUID(), _formatURI(METHODS.POST, m, true), values,
+      callback);
+  };
+
+  var _formatURI = function (base, m, session, i) {
+    var token = "";
+    var uri = m.getUID();
+    if (typeof i === "number") {
+      uri += "/" + m.collection[i].get("id");
+    }
+    if (!session && m.get("crud") && m.get("crud")[base] && m.get("crud")[
+        base].length === 2) {
+      token = "?token=" + currentSessionToken;
+    }
+    return base + ":" + SELF_KRASNY.get("config").api + "/" + (session ?
+      "session/" : "") + uri + token;
   };
 
   var _modelUpdates = function (m) {
-    document.addEventListener("update", _propertyChangeHandler);
+    document.addEventListener(METHODS.PUT, _propertyChangeHandler);
   };
 
   var _forIn = function (coll, fn) {
@@ -416,69 +432,77 @@ var krasny = function (jquery, ejs) {
     });
   };
 
+  var _initController = function (e) {
+    var _newHash;
+    var _hashParams = {};
+    if (e) {
+      _newHash = e.newURL.split("#").pop();
+    } else {
+      _newHash = "/";
+    }
+    _controllerMatcherArr.forEach(function (contMatch, i) {
+      if (contMatch.regex.test(_newHash)) {
+        var _matches = contMatch.regex.exec(_newHash);
+        _matches.shift();
+        _matches.forEach(function (mat, i) {
+          _hashParams[contMatch.paramList[i]] = mat;
+        });
+        _forIn(views, _clear);
+        var contextViews = contMatch.loadViews.map(function (vuid) {
+          return views[vuid]
+        });
+        _forIn(contextViews, _invalidate);
+        contMatch.func(models, views, _hashParams, SELF_KRASNY);
+      }
+    });
+  };
+
+  var _prepareRoutes = function (controller, name) {
+    var _parts;
+    var _params;
+    var _result;
+    if (controller.route === "/") {
+      _params = {};
+      _result = new RegExp(/^\/$/);
+    } else {
+      _parts = controller.route.split("/");
+      _params = _parts.filter(function (x) {
+        return x.search(":") === 0
+      });
+      _params = _params.map(function (x) {
+        return x.replace(":", "")
+      });
+      _result = new RegExp(_parts.join("\/").replace(/:[a-z]+/g,
+        "(.+)"))
+    }
+    _controllerMatcherArr.push({
+      regex: _result,
+      paramList: _params,
+      loadViews: controller.load || [],
+      func: controller.context
+    });
+  };
+
+  var _checkRequiredKeys = function (k) {
+    if (!SELF_KRASNY.get(k)) throw new Error(k +
+      " is not defined in main app");
+  };
+
+  SELF_KRASNY.navigate = function (controllerName) {
+    _forIn(SELF_KRASNY.get("controllers"), function (controller, name) {
+      if (controllerName === name) {
+        window.location.hash = controller.route;
+      }
+    });
+  };
+
+  SELF_KRASNY.upload = function (formData, callback) {
+    _restAdapter(SELF_KRASNY.get("config").fileinput, METHODS.POST + ":" +
+      SELF_KRASNY.get("config").api + "/" + SELF_KRASNY.get("config").fileinput,
+      formData, callback);
+  }
+
   SELF_KRASNY.start = function () {
-    var _controllerMatcherArr = [];
-
-    var _checkRequiredKeys = function (k) {
-      if (!SELF_KRASNY.get(k)) throw new Error(k +
-        " is not defined in main app");
-    };
-
-    var _prepareRoutes = function (controller, name) {
-      var _parts;
-      var _params;
-      var _result;
-      if (controller.route === "/") {
-        _params = {};
-        _result = new RegExp("\/");
-      } else {
-        _parts = controller.route.split("/");
-        _params = _parts.filter(function (x) {
-          return x.search(":") === 0
-        });
-        _params = _params.map(function (x) {
-          return x.replace(":", "")
-        });
-        _result = new RegExp(_parts.join("\/").replace(/:[a-z]+/g,
-          "(.+)"))
-      }
-      _controllerMatcherArr.push({
-        regex: _result,
-        paramList: _params,
-        loadViews: controller.load || [],
-        func: controller.context
-      });
-    };
-
-    var _initController = function (e) {
-      var _newHash;
-      var _hashParams = {};
-      if (e) {
-        _newHash = e.newURL.split("#").pop();
-      } else {
-        _newHash = "/";
-      }
-      _controllerMatcherArr.forEach(function (contMatch, i) {
-        if (!contMatch.regex.test(_newHash)) {
-          if (_controllerMatcherArr.length === i + 1) {
-            window.location.hash = "/";
-          }
-          return;
-        } else {
-          var _matches = contMatch.regex.exec(_newHash);
-          _matches.shift();
-          _matches.forEach(function (mat, i) {
-            _hashParams[contMatch.paramList[i]] = mat;
-          });
-          _forIn(views, _clear);
-          var contextViews = contMatch.loadViews.map(function (vuid) {
-            return views[vuid]
-          });
-          _forIn(contextViews, _invalidate);
-          contMatch.func(models, views, $, _hashParams);
-        }
-      });
-    };
 
     var _requiredKeys = ["views", "models", "config", "controllers"];
 
@@ -499,12 +523,8 @@ var krasny = function (jquery, ejs) {
     });
   };
 
-  ejs.delimiter = '?';
-
   return Type.call(SELF_KRASNY, MAIN);
 };
 
-if (typeof module !== "undefined") module.exports = new krasny(require(
-    "jquery"),
-  require("ejs"));
-else window.K = new krasny($, ejs);
+if (typeof module !== "undefined") module.exports = new krasny(require("ejs"));
+else window.K = new krasny(ejs);
