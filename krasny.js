@@ -411,8 +411,8 @@ var krasny = function (ejs) {
   var _formatURI = function (base, m, session, i) {
     var token = "";
     var uri = m.getUID();
-    if (typeof i === "number") {
-      uri += "/" + m.collection[i].get("id");
+    if (typeof i === "number" && m.collection[i]) {
+      uri += "/" + i;
     }
     if (!session && m.get("crud") && m.get("crud")[base] && m.get("crud")[
         base].length === 2) {
