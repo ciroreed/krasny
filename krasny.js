@@ -472,8 +472,8 @@ var krasny = function (ejs) {
       _params = _params.map(function (x) {
         return x.replace(":", "")
       });
-      _result = new RegExp(_parts.join("\/").replace(/:[a-z]+/g,
-        "(.+)"))
+      var _tmp = "^" + _parts.join("\/") + "$";
+      _result = new RegExp(_tmp.replace(/:[a-z]+/g, "(.+)"));
     }
     _controllerMatcherArr.push({
       regex: _result,
