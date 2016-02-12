@@ -3,7 +3,6 @@
 krasny is a lightweight framework that has two dependencies:
 
 - https://github.com/mde/ejs
-- https://github.com/jquery/jquery
 
 krasny is under hard developement.
 

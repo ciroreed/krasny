@@ -265,9 +265,14 @@ var krasny = function (ejs) {
   };
 
   var _propertyChangeHandler = function (e) {
+    var scopedView = e.detail.get("scopedView");
+    var scopeHandler = e.detail.get("onupdate");
     var scopedView = models[e.detail.getUID()].get("scopedView");
     if (scopedView) {
       views[scopedView].invalidate();
+    }
+    if (scopeHandler && typeof scopeHandler === "function") {
+      scopeHandler(e.detail.get("scope"));
     }
   };
 
