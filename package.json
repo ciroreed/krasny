@@ -1,6 +1,6 @@
 {
   "name": "krasny",
-  "version": "1.2.14",
+  "version": "1.2.15",
   "description": "early framework",
   "main": "krasny.js",
   "license": "MIT",
