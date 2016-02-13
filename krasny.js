@@ -112,8 +112,9 @@ var krasny = function (ejs) {
       _search(k, v, SELF_MODEL);
     };
 
-    SELF_MODEL.filter = function (k, v) {
-      _filter(k, v, SELF_MODEL);
+    SELF_MODEL.filter = function (obj) {
+      var firstKey = Object.keys(obj).pop();
+      _filter(firstKey, obj[firstKey], SELF_MODEL);
     };
 
     SELF_MODEL.all = function () {
@@ -261,6 +262,11 @@ var krasny = function (ejs) {
     _forIn(resp, function (f) {
       models[uid].collection.push(new models[uid].Instance(f));
     });
+    if (models[uid].get("defaultFilter")) {
+      models[uid].filter(models[uid].get("defaultFilter"));
+    } else {
+      models[uid].all();
+    }
   };
 
   var _propertyChangeHandler = function (e) {
@@ -394,7 +400,8 @@ var krasny = function (ejs) {
       callback();
       return;
     }
-    _restAdapter(m.getUID(), _formatURI(METHODS.PUT, m, false, i), values, callback);
+    _restAdapter(m.getUID(), _formatURI(METHODS.PUT, m, false, i), values,
+      callback);
   };
 
   var _deleteInstance = function (i, callback, m) {
@@ -403,7 +410,8 @@ var krasny = function (ejs) {
       callback();
       return;
     }
-    _restAdapter(m.getUID(), _formatURI(METHODS.DELETE, m, false, i), undefined,
+    _restAdapter(m.getUID(), _formatURI(METHODS.DELETE, m, false, i),
+      undefined,
       callback);
   };
 
