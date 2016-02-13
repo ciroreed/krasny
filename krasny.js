@@ -344,7 +344,7 @@ var krasny = function (ejs) {
     if (m.get("sorting")) {
       m.sort(m.get("sorting"));
     }
-    m.set("scope", m.collection);
+    m.set("scope", m.collection, true);
   };
 
   var _sort = function (m, crit) {
