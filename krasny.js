@@ -261,7 +261,6 @@ var krasny = function (ejs) {
     _forIn(resp, function (f) {
       models[uid].collection.push(new models[uid].Instance(f));
     });
-    models[uid].all();
   };
 
   var _propertyChangeHandler = function (e) {
