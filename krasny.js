@@ -429,61 +429,6 @@ var krasny = function (ejs) {
     });
   };
 
-  var _initController = function (e) {
-    var _newHash;
-    var _hashParams = {};
-    if (e) {
-      _newHash = e.newURL.split("#").pop();
-    } else {
-      _newHash = "/";
-    }
-    _controllerMatcherArr.forEach(function (contMatch, i) {
-      if (contMatch.regex.test(_newHash)) {
-        var _matches = contMatch.regex.exec(_newHash);
-        _matches.shift();
-        _matches.forEach(function (mat, i) {
-          _hashParams[contMatch.paramList[i]] = mat;
-        });
-        var contextViews = contMatch.loadViews.map(function (vuid) {
-          return views[vuid]
-        });
-        _forIn(contextViews, _invalidate);
-        contMatch.func(models, views, _hashParams, SELF_KRASNY);
-      }
-    });
-  };
-
-  var _prepareRoutes = function (controller, name) {
-    var _parts;
-    var _params;
-    var _result;
-    if (controller.route === "/") {
-      _params = {};
-      _result = new RegExp(/^\/$/);
-    } else {
-      _parts = controller.route.split("/");
-      _params = _parts.filter(function (x) {
-        return x.search(":") === 0
-      });
-      _params = _params.map(function (x) {
-        return x.replace(":", "")
-      });
-      var _tmp = "^" + _parts.join("\/") + "$";
-      _result = new RegExp(_tmp.replace(/:[a-z]+/g, "(.+)"));
-    }
-    _controllerMatcherArr.push({
-      regex: _result,
-      paramList: _params,
-      loadViews: controller.load || [],
-      func: controller.context
-    });
-  };
-
-  var _checkRequiredKeys = function (k) {
-    if (!SELF_KRASNY.get(k)) throw new Error(k +
-      " is not defined in main app");
-  };
-
   SELF_KRASNY.navigate = function (controllerName) {
     _forIn(SELF_KRASNY.get("controllers"), function (controller, name) {
       if (controllerName === name) {
@@ -518,6 +463,57 @@ var krasny = function (ejs) {
     var _controllers = SELF_KRASNY.get("controllers") || {};
     _controllers[n] = c;
     SELF_KRASNY.set("controllers", _controllers, true);
+  };
+  
+    var _initController = function (e) {
+    var _newHash;
+    var _hashParams = {};
+    if (e) {
+      _newHash = e.newURL.split("#").pop();
+    } else {
+      _newHash = "/";
+    }
+    _controllerMatcherArr.forEach(function (contMatch, i) {
+      if (contMatch.regex.test(_newHash)) {
+        var _matches = contMatch.regex.exec(_newHash);
+        _matches.shift();
+        _matches.forEach(function (mat, i) {
+          _hashParams[contMatch.paramList[i]] = mat;
+        });
+        contMatch.func(models, views, _hashParams, SELF_KRASNY);
+      }
+    });
+  };
+
+  var _prepareRoutes = function (controller, name) {
+    var _parts;
+    var _params;
+    var _result;
+    if (controller.route === "/") {
+      _params = {};
+      _result = new RegExp(/^\/$/);
+    } else {
+      _parts = controller.route.split("/");
+      _params = _parts.filter(function (x) {
+        return x.search(":") === 0
+      });
+      _params = _params.map(function (x) {
+        return x.replace(":", "")
+      });
+      var _tmp = "^" + _parts.join("\/") + "$";
+      _result = new RegExp(_tmp.replace(/:[a-z]+/g, "(.+)"));
+    }
+    _controllerMatcherArr.push({
+      regex: _result,
+      paramList: _params,
+      loadViews: controller.load || [],
+      func: controller.context
+    });
+  };
+
+  var _checkRequiredKeys = function (k) {
+    if (!SELF_KRASNY.get(k)) throw new Error(k +
+      " is not defined in main app");
   };
 
   SELF_KRASNY.start = function () {
