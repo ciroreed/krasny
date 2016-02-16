@@ -112,6 +112,10 @@ var krasny = function (ejs) {
       _search(k, v, SELF_MODEL);
     };
 
+    SELF_MODEL.getReference = function(p){
+      return _getReference(p, SELF_MODEL)
+    };
+
     SELF_MODEL.filter = function (obj) {
       var firstKey = Object.keys(obj).pop();
       _filter(firstKey, obj[firstKey], SELF_MODEL);
@@ -248,9 +252,6 @@ var krasny = function (ejs) {
     prop["uid"] = uid;
     var tmpview = new View(prop);
     views[tmpview.getUID()] = tmpview;
-    if (tmpview.get("scope")) {
-      models[tmpview.get("scope")].set("scopedView", tmpview.getUID());
-    }
     viewTemplates.push({
       uid: tmpview.getUID(),
       uri: tmpview.get("path")
@@ -270,14 +271,8 @@ var krasny = function (ejs) {
   };
 
   var _propertyChangeHandler = function (e) {
-    var scopedView = e.detail.get("scopedView");
-    var scopeHandler = e.detail.get("onupdate");
-    var scopedView = models[e.detail.getUID()].get("scopedView");
-    if (scopedView) {
-      views[scopedView].invalidate();
-    }
-    if (scopeHandler && typeof scopeHandler === "function") {
-      scopeHandler(e.detail.get("scope"));
+    if(e.detail instanceof Model && typeof e.detail.onchange === "function"){
+      e.detail.onchange();
     }
   };
 
@@ -317,18 +312,11 @@ var krasny = function (ejs) {
   var _invalidate = function (v, i, hardScoped) {
     v.clear();
     v.set("el", document.body.querySelector(v.get("root")), true);
+    var hardScoped = hardScoped || {};
+    var hardScoped["i18n"] = K.get("i18n")[v.getUID()] || {};
+    var hardScoped["lang"] = K.get("lang") || "en";
     var compiledHtml = ejs.compile(v.get("html"));
-    if (hardScoped) {
-      compiledHtml = compiledHtml({
-        scope: hardScoped
-      });
-    } else if (v.get("scope")) {
-      compiledHtml = compiledHtml({
-        scope: models[v.get("scope")].get("scope")
-      });
-    } else {
-      compiledHtml = compiledHtml();
-    }
+    compiledHtml = compiledHtml(hardScoped);
     v.get("el").innerHTML = compiledHtml;
     v.listen();
   }
@@ -344,6 +332,10 @@ var krasny = function (ejs) {
       function (i) {
         return i.get(k).indexOf(v) > -1
       }));
+  };
+
+  var _getReference = function(prop, m){
+    return m.map(function(i){ return i.get(m) });
   };
 
   var _all = function (m) {
