@@ -308,12 +308,11 @@ var krasny = function (ejs) {
   var _invalidate = function (v, i, hardScoped) {
     v.clear();
     v.set("el", document.body.querySelector(v.get("root")), true);
+    var hardScoped = hardScoped || {};
+    var hardScoped["i18n"] = K.get("i18n")[v.getUID()] || {};
+    var hardScoped["lang"] = K.get("lang") || "en";
     var compiledHtml = ejs.compile(v.get("html"));
-    if (hardScoped) {
-      compiledHtml = compiledHtml(hardScoped);
-    } else {
-      compiledHtml = compiledHtml();
-    }
+    compiledHtml = compiledHtml(hardScoped);
     v.get("el").innerHTML = compiledHtml;
     v.listen();
   }
