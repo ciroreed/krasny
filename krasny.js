@@ -444,7 +444,6 @@ var krasny = function (ejs) {
         _matches.forEach(function (mat, i) {
           _hashParams[contMatch.paramList[i]] = mat;
         });
-        _forIn(views, _clear);
         var contextViews = contMatch.loadViews.map(function (vuid) {
           return views[vuid]
         });
