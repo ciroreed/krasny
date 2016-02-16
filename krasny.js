@@ -248,9 +248,6 @@ var krasny = function (ejs) {
     prop["uid"] = uid;
     var tmpview = new View(prop);
     views[tmpview.getUID()] = tmpview;
-    if (tmpview.get("scope")) {
-      models[tmpview.get("scope")].set("scopedView", tmpview.getUID());
-    }
     viewTemplates.push({
       uid: tmpview.getUID(),
       uri: tmpview.get("path")
@@ -270,14 +267,8 @@ var krasny = function (ejs) {
   };
 
   var _propertyChangeHandler = function (e) {
-    var scopedView = e.detail.get("scopedView");
-    var scopeHandler = e.detail.get("onupdate");
-    var scopedView = models[e.detail.getUID()].get("scopedView");
-    if (scopedView) {
-      views[scopedView].invalidate();
-    }
-    if (scopeHandler && typeof scopeHandler === "function") {
-      scopeHandler(e.detail.get("scope"));
+    if(e.detail instanceof Model && typeof e.detail.onchange === "function"){
+      e.detail.onchange();
     }
   };
 
@@ -319,13 +310,7 @@ var krasny = function (ejs) {
     v.set("el", document.body.querySelector(v.get("root")), true);
     var compiledHtml = ejs.compile(v.get("html"));
     if (hardScoped) {
-      compiledHtml = compiledHtml({
-        scope: hardScoped
-      });
-    } else if (v.get("scope")) {
-      compiledHtml = compiledHtml({
-        scope: models[v.get("scope")].get("scope")
-      });
+      compiledHtml = compiledHtml(hardScoped);
     } else {
       compiledHtml = compiledHtml();
     }
@@ -512,7 +497,29 @@ var krasny = function (ejs) {
     _restAdapter(SELF_KRASNY.get("config").fileinput, METHODS.POST + ":" +
       SELF_KRASNY.get("config").api + "/" + SELF_KRASNY.get("config").fileinput,
       formData, callback);
-  }
+  };
+
+  SELF_KRASNY.setConfiguration = function(c){
+    SELF_KRASNY.set("config", c, true);
+  };
+
+  SELF_KRASNY.addModel = function(n, c){
+    var _models = SELF_KRASNY.get("models") || {};
+    _models[n] = c;
+    SELF_KRASNY.set("models", _models, true);
+  };
+
+  SELF_KRASNY.addView = function(n, c){
+    var _views = SELF_KRASNY.get("views") || {};
+    _views[n] = c;
+    SELF_KRASNY.set("views", _views, true);
+  };
+
+  SELF_KRASNY.addController = function(n, c){
+    var _controllers = SELF_KRASNY.get("controllers") || {};
+    _controllers[n] = c;
+    SELF_KRASNY.set("controllers", _controllers, true);
+  };
 
   SELF_KRASNY.start = function () {
 
