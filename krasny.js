@@ -112,6 +112,10 @@ var krasny = function (ejs) {
       _search(k, v, SELF_MODEL);
     };
 
+    SELF_MODEL.getReference = function(p){
+      return _getReference(p, SELF_MODEL);
+    };
+
     SELF_MODEL.filter = function (obj) {
       var firstKey = Object.keys(obj).pop();
       _filter(firstKey, obj[firstKey], SELF_MODEL);
@@ -248,9 +252,6 @@ var krasny = function (ejs) {
     prop["uid"] = uid;
     var tmpview = new View(prop);
     views[tmpview.getUID()] = tmpview;
-    if (tmpview.get("scope")) {
-      models[tmpview.get("scope")].set("scopedView", tmpview.getUID());
-    }
     viewTemplates.push({
       uid: tmpview.getUID(),
       uri: tmpview.get("path")
@@ -270,14 +271,8 @@ var krasny = function (ejs) {
   };
 
   var _propertyChangeHandler = function (e) {
-    var scopedView = e.detail.get("scopedView");
-    var scopeHandler = e.detail.get("onupdate");
-    var scopedView = models[e.detail.getUID()].get("scopedView");
-    if (scopedView) {
-      views[scopedView].invalidate();
-    }
-    if (scopeHandler && typeof scopeHandler === "function") {
-      scopeHandler(e.detail.get("scope"));
+    if(e.detail instanceof Model && typeof e.detail.onchange === "function"){
+      e.detail.onchange();
     }
   };
 
@@ -319,13 +314,7 @@ var krasny = function (ejs) {
     v.set("el", document.body.querySelector(v.get("root")), true);
     var compiledHtml = ejs.compile(v.get("html"));
     if (hardScoped) {
-      compiledHtml = compiledHtml({
-        scope: hardScoped
-      });
-    } else if (v.get("scope")) {
-      compiledHtml = compiledHtml({
-        scope: models[v.get("scope")].get("scope")
-      });
+      compiledHtml = compiledHtml(hardScoped);
     } else {
       compiledHtml = compiledHtml();
     }
@@ -345,6 +334,11 @@ var krasny = function (ejs) {
         return i.get(k).indexOf(v) > -1
       }));
   };
+
+  var _getReference = function(prop, m){
+    return m.map(function(i){ return i.get(m) });
+  };
+
 
   var _all = function (m) {
     if (m.get("sorting")) {
@@ -444,6 +438,42 @@ var krasny = function (ejs) {
     });
   };
 
+  SELF_KRASNY.navigate = function (controllerName) {
+    _forIn(SELF_KRASNY.get("controllers"), function (controller, name) {
+      if (controllerName === name) {
+        window.location.hash = controller.route;
+      }
+    });
+  };
+
+  SELF_KRASNY.upload = function (formData, callback) {
+    _restAdapter(SELF_KRASNY.get("config").fileinput, METHODS.POST + ":" +
+      SELF_KRASNY.get("config").api + "/" + SELF_KRASNY.get("config").fileinput,
+      formData, callback);
+  };
+
+  SELF_KRASNY.setConfiguration = function(c){
+    SELF_KRASNY.set("config", c, true);
+  };
+
+  SELF_KRASNY.addModel = function(n, c){
+    var _models = SELF_KRASNY.get("models") || {};
+    _models[n] = c;
+    SELF_KRASNY.set("models", _models, true);
+  };
+
+  SELF_KRASNY.addView = function(n, c){
+    var _views = SELF_KRASNY.get("views") || {};
+    _views[n] = c;
+    SELF_KRASNY.set("views", _views, true);
+  };
+
+  SELF_KRASNY.addController = function(n, c){
+    var _controllers = SELF_KRASNY.get("controllers") || {};
+    _controllers[n] = c;
+    SELF_KRASNY.set("controllers", _controllers, true);
+  };
+
   var _initController = function (e) {
     var _newHash;
     var _hashParams = {};
@@ -459,11 +489,6 @@ var krasny = function (ejs) {
         _matches.forEach(function (mat, i) {
           _hashParams[contMatch.paramList[i]] = mat;
         });
-        _forIn(views, _clear);
-        var contextViews = contMatch.loadViews.map(function (vuid) {
-          return views[vuid]
-        });
-        _forIn(contextViews, _invalidate);
         contMatch.func(models, views, _hashParams, SELF_KRASNY);
       }
     });
@@ -499,20 +524,6 @@ var krasny = function (ejs) {
     if (!SELF_KRASNY.get(k)) throw new Error(k +
       " is not defined in main app");
   };
-
-  SELF_KRASNY.navigate = function (controllerName) {
-    _forIn(SELF_KRASNY.get("controllers"), function (controller, name) {
-      if (controllerName === name) {
-        window.location.hash = controller.route;
-      }
-    });
-  };
-
-  SELF_KRASNY.upload = function (formData, callback) {
-    _restAdapter(SELF_KRASNY.get("config").fileinput, METHODS.POST + ":" +
-      SELF_KRASNY.get("config").api + "/" + SELF_KRASNY.get("config").fileinput,
-      formData, callback);
-  }
 
   SELF_KRASNY.start = function () {
 
