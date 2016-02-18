@@ -112,6 +112,10 @@ var krasny = function (ejs) {
       _search(k, v, SELF_MODEL);
     };
 
+    SELF_MODEL.getReference = function(p){
+      return _getReference(p, SELF_MODEL)
+    };
+
     SELF_MODEL.filter = function (obj) {
       var firstKey = Object.keys(obj).pop();
       _filter(firstKey, obj[firstKey], SELF_MODEL);
@@ -328,6 +332,10 @@ var krasny = function (ejs) {
       function (i) {
         return i.get(k).indexOf(v) > -1
       }));
+  };
+
+  var _getReference = function(prop, m){
+    return m.map(function(i){ return i.get(m) });
   };
 
   var _all = function (m) {
