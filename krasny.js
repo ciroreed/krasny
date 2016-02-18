@@ -112,6 +112,10 @@ var krasny = function (ejs) {
       _search(k, v, SELF_MODEL);
     };
 
+    SELF_MODEL.getReference = function(p){
+      return _getReference(p, SELF_MODEL);
+    };
+
     SELF_MODEL.filter = function (obj) {
       var firstKey = Object.keys(obj).pop();
       _filter(firstKey, obj[firstKey], SELF_MODEL);
@@ -331,6 +335,11 @@ var krasny = function (ejs) {
       }));
   };
 
+  var _getReference = function(prop, m){
+    return m.map(function(i){ return i.get(m) });
+  };
+
+
   var _all = function (m) {
     if (m.get("sorting")) {
       m.sort(m.get("sorting"));
@@ -464,8 +473,8 @@ var krasny = function (ejs) {
     _controllers[n] = c;
     SELF_KRASNY.set("controllers", _controllers, true);
   };
-  
-    var _initController = function (e) {
+
+  var _initController = function (e) {
     var _newHash;
     var _hashParams = {};
     if (e) {
