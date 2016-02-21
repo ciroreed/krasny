@@ -211,7 +211,9 @@ var krasny = function (ejs) {
               callback);
             break;
           default:
-            console.log(xhttp.status);
+            if(typeof models[uid].get("error") === "function"){
+              models[uid].get("error")(xhttp);
+            }
         }
       }
     }
