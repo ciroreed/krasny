@@ -112,7 +112,7 @@ var krasny = function (ejs) {
       _search(k, v, SELF_MODEL);
     };
 
-    SELF_MODEL.getReference = function(p){
+    SELF_MODEL.getReference = function (p) {
       return _getReference(p, SELF_MODEL);
     };
 
@@ -271,7 +271,8 @@ var krasny = function (ejs) {
   };
 
   var _propertyChangeHandler = function (e) {
-    if(e.detail instanceof Model && typeof e.detail.onchange === "function"){
+    if (e.detail instanceof Model && typeof e.detail.onchange ===
+      "function") {
       e.detail.onchange();
     }
   };
@@ -335,8 +336,10 @@ var krasny = function (ejs) {
       }));
   };
 
-  var _getReference = function(prop, m){
-    return m.map(function(i){ return i.get(m) });
+  var _getReference = function (prop, m) {
+    return m.map(function (i) {
+      return i.get(m)
+    });
   };
 
 
@@ -452,23 +455,23 @@ var krasny = function (ejs) {
       formData, callback);
   };
 
-  SELF_KRASNY.setConfiguration = function(c){
+  SELF_KRASNY.setConfiguration = function (c) {
     SELF_KRASNY.set("config", c, true);
   };
 
-  SELF_KRASNY.addModel = function(n, c){
+  SELF_KRASNY.addModel = function (n, c) {
     var _models = SELF_KRASNY.get("models") || {};
     _models[n] = c;
     SELF_KRASNY.set("models", _models, true);
   };
 
-  SELF_KRASNY.addView = function(n, c){
+  SELF_KRASNY.addView = function (n, c) {
     var _views = SELF_KRASNY.get("views") || {};
     _views[n] = c;
     SELF_KRASNY.set("views", _views, true);
   };
 
-  SELF_KRASNY.addController = function(n, c){
+  SELF_KRASNY.addController = function (n, c) {
     var _controllers = SELF_KRASNY.get("controllers") || {};
     _controllers[n] = c;
     SELF_KRASNY.set("controllers", _controllers, true);
@@ -482,6 +485,14 @@ var krasny = function (ejs) {
     } else {
       _newHash = "/";
     }
+    _forIn(models, function (m) {
+      delete m.onchange;
+    });
+    _forIn(views, function (v) {
+      if(typeof v.get("alwaysVisible") === "undefined"){
+        v.clear();
+      }
+    });
     _controllerMatcherArr.forEach(function (contMatch, i) {
       if (contMatch.regex.test(_newHash)) {
         var _matches = contMatch.regex.exec(_newHash);
