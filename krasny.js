@@ -254,10 +254,15 @@ var krasny = function (ejs) {
     prop["uid"] = uid;
     var tmpview = new View(prop);
     views[tmpview.getUID()] = tmpview;
-    viewTemplates.push({
-      uid: tmpview.getUID(),
-      uri: tmpview.get("path")
-    });
+    if(tmpview.get("path").search("#") === 0){
+        var viewhtml = document.getElementById(tmpview.get("path"));
+        _renderView(tmpview.getUID(), viewhtml);
+    }else{
+        viewTemplates.push({
+            uid: tmpview.getUID(),
+            uri: tmpview.get("path")
+        });
+    }
   };
 
   var _fetchModel = function (uid, resp) {
@@ -540,7 +545,7 @@ var krasny = function (ejs) {
 
   SELF_KRASNY.start = function () {
 
-    var _requiredKeys = ["views", "models", "config", "controllers"];
+    var _requiredKeys = ["views", "models", "controllers"];
 
     _requiredKeys.forEach(_checkRequiredKeys);
 
