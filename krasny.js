@@ -319,6 +319,10 @@ var krasny = function (ejs) {
 
   var _invalidate = function (v, i, hardScoped) {
     v.clear();
+    var hardScoped = hardScoped || {};
+    if(SELF_KRASNY.get("i18n")){
+      hardScoped.i18n = SELF_KRASNY.get("i18n");
+    }
     v.set("el", document.body.querySelector(v.get("root")), true);
     var compiledHtml = ejs.compile(v.get("html"));
     if (hardScoped) {
@@ -358,13 +362,12 @@ var krasny = function (ejs) {
   };
 
   var _sort = function (m, crit) {
-    var key = Object.keys(crit).shift();
-    if (typeof m.get("defaults")[key] === "number") {
+    if (typeof m.get("defaults")[crit] === "number") {
       m.set("scope", m.collection.sort());
       return;
     }
     m.set("scope", m.collection.sort(function (a, b) {
-      return a.get(key).localeCompare(b.get(key));
+      return a.get(crit).localeCompare(b.get(crit));
     }));
   };
 
