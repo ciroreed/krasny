@@ -212,7 +212,7 @@ var krasny = function (ejs) {
               callback);
             break;
           default:
-            if(typeof models[uid].get("error") === "function"){
+            if (typeof models[uid].get("error") === "function") {
               models[uid].get("error")(xhttp);
             }
         }
@@ -255,14 +255,14 @@ var krasny = function (ejs) {
     prop["uid"] = uid;
     var tmpview = new View(prop);
     views[tmpview.getUID()] = tmpview;
-    if(tmpview.get("path").search("#") === 0){
-        var viewhtml = document.getElementById(tmpview.get("path"));
-        _renderView(tmpview.getUID(), viewhtml);
-    }else{
-        viewTemplates.push({
-            uid: tmpview.getUID(),
-            uri: tmpview.get("path")
-        });
+    if (tmpview.get("path").search("#") === 0) {
+      var viewhtml = document.getElementById(tmpview.get("path"));
+      _renderView(tmpview.getUID(), viewhtml);
+    } else {
+      viewTemplates.push({
+        uid: tmpview.getUID(),
+        uri: tmpview.get("path")
+      });
     }
   };
 
@@ -321,7 +321,7 @@ var krasny = function (ejs) {
   var _invalidate = function (v, i, hardScoped) {
     v.clear();
     var hardScoped = hardScoped || {};
-    if(SELF_KRASNY.get("i18n")){
+    if (SELF_KRASNY.get("i18n")) {
       hardScoped.i18n = SELF_KRASNY.get("i18n");
     }
     v.set("el", document.body.querySelector(v.get("root")), true);
@@ -356,26 +356,24 @@ var krasny = function (ejs) {
 
 
   var _all = function (m) {
-    if (m.get("sorting")) {
-      m.sort(m.get("sorting"));
-    }
     m.set("scope", m.collection);
   };
 
   var _sort = function (m, crit, reverse) {
+    var tmp = m.get("scope");
     if (typeof m.get("defaults")[crit] === "number") {
-      m.collection.sort(function (a, b) {
+      tmp.sort(function (a, b) {
         return a.get(crit) < b.get(crit);
       });
-    }else{
-      m.collection.sort(function (a, b) {
+    } else {
+      tmp.sort(function (a, b) {
         return a.get(crit).localeCompare(b.get(crit));
       });
     }
-    if(reverse){
-      m.collection.reverse();
+    if (reverse) {
+      tmp.reverse();
     }
-    m.set("scope", m.collection);
+    m.set("scope", tmp);
   };
 
   var _getInstance = function (m, crit) {
@@ -506,7 +504,7 @@ var krasny = function (ejs) {
       delete m.onchange;
     });
     _forIn(views, function (v) {
-      if(typeof v.get("alwaysVisible") === "undefined"){
+      if (typeof v.get("alwaysVisible") === "undefined") {
         v.clear();
       }
     });
