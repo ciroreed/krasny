@@ -73,6 +73,7 @@ var krasny = function (ejs) {
     };
     SELF_TYPE.set = function (k, v, silent) {
       _PROPERTYES[k] = v;
+      _PROPERTYES["changed"] = k;
       if (!silent) document.dispatchEvent(_changeEvent);
     };
     return SELF_TYPE;
@@ -125,8 +126,8 @@ var krasny = function (ejs) {
       _all(SELF_MODEL);
     };
 
-    SELF_MODEL.sort = function (crit) {
-      _sort(SELF_MODEL, crit);
+    SELF_MODEL.sort = function (crit, reverse) {
+      _sort(SELF_MODEL, crit, reverse);
     };
 
     SELF_MODEL.getInstance = function (crit) {
@@ -280,7 +281,7 @@ var krasny = function (ejs) {
   var _propertyChangeHandler = function (e) {
     if (e.detail instanceof Model && typeof e.detail.onchange ===
       "function") {
-      e.detail.onchange();
+      e.detail.onchange(e.detail.get("changed"));
     }
   };
 
@@ -361,14 +362,20 @@ var krasny = function (ejs) {
     m.set("scope", m.collection);
   };
 
-  var _sort = function (m, crit) {
+  var _sort = function (m, crit, reverse) {
     if (typeof m.get("defaults")[crit] === "number") {
-      m.set("scope", m.collection.sort());
-      return;
+      m.collection.sort(function (a, b) {
+        return a.get(crit) < b.get(crit);
+      });
+    }else{
+      m.collection.sort(function (a, b) {
+        return a.get(crit).localeCompare(b.get(crit));
+      });
     }
-    m.set("scope", m.collection.sort(function (a, b) {
-      return a.get(crit).localeCompare(b.get(crit));
-    }));
+    if(reverse){
+      m.collection.reverse();
+    }
+    m.set("scope", m.collection);
   };
 
   var _getInstance = function (m, crit) {
