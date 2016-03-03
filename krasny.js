@@ -33,6 +33,12 @@ var krasny = function (ejs) {
     view: "VIEW",
     model: "MODEL"
   };
+  
+  SELF_KRASNY.restutils = {
+    doPost: function(uri, body){
+        _restAdapter(undefined, uri, body);
+    }
+  };
 
   var LocalStorageAdapter = function (uid) {
     var LOCAL_STORAGE = this;
@@ -306,7 +312,7 @@ var krasny = function (ejs) {
         }
       });
     });
-  }
+  };
 
   var _clear = function (v) {
     if (v.get("el")) {
@@ -316,7 +322,7 @@ var krasny = function (ejs) {
 
   var _getFormData = function (v, selector) {
     return new FormData(v.get("el").querySelector(selector || "form"));
-  }
+  };
 
   var _invalidate = function (v, i, hardScoped) {
     v.clear();
@@ -353,7 +359,6 @@ var krasny = function (ejs) {
       return i.get(m)
     });
   };
-
 
   var _all = function (m) {
     m.set("scope", m.collection);
