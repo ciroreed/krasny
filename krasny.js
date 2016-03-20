@@ -299,7 +299,7 @@ var krasny = function (ejs) {
         SELF_MODEL.Instance = function (raw) {
             var INST = Type.call(this, args);
             _forIn(SELF_MODEL.get("defaults"), function (v, k) {
-                INST.property(k, raw[k] || v, true);
+                INST.property(k, raw[k] || v);
             });
             _forIn(SELF_MODEL.property("methods") || {}, function (v, k) {
                 INST[k] = v;
@@ -429,8 +429,8 @@ var krasny = function (ejs) {
             SELF_MODEL.lifecycle.addSubscriber(action, handler);
         };
 
-        SELF_MODEL.force = function (action, prop) {
-            SELF_MODEL.lifecycle.fire(action, prop);
+        SELF_MODEL.force = function (action) {
+            SELF_MODEL.lifecycle.fire(action);
         };
 
         SELF_MODEL.lay = function (action) {
@@ -489,11 +489,7 @@ var krasny = function (ejs) {
             SELF_VIEW.property("el", document.body.querySelector(SELF_VIEW.property(
                 "root")), true);
             var compiledHtml = ejs.compile(SELF_VIEW.property("html"));
-            if (hardScoped) {
-                compiledHtml = compiledHtml(hardScoped);
-            } else {
-                compiledHtml = compiledHtml();
-            }
+            compiledHtml = compiledHtml(hardScoped);
             SELF_VIEW.property("el").innerHTML = compiledHtml;
             SELF_VIEW.listen();
         };
@@ -564,25 +560,25 @@ var krasny = function (ejs) {
     };
 
     SELF_KRASNY.setConfiguration = function (c) {
-        SELF_KRASNY.property("config", c, true);
+        SELF_KRASNY.property("config", c);
     };
 
     SELF_KRASNY.addModel = function (n, c) {
         var _models = SELF_KRASNY.property("models") || {};
         _models[n] = c;
-        SELF_KRASNY.property("models", _models, true);
+        SELF_KRASNY.property("models", _models);
     };
 
     SELF_KRASNY.addView = function (n, c) {
         var _views = SELF_KRASNY.property("views") || {};
         _views[n] = c;
-        SELF_KRASNY.property("views", _views, true);
+        SELF_KRASNY.property("views", _views);
     };
 
     SELF_KRASNY.addController = function (n, c) {
         var _controllers = SELF_KRASNY.property("controllers") || {};
         _controllers[n] = c;
-        SELF_KRASNY.property("controllers", _controllers, true);
+        SELF_KRASNY.property("controllers", _controllers);
     };
 
     SELF_KRASNY.start = function (init) {
