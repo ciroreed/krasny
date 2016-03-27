@@ -1,7 +1,6 @@
-/tests
+/tests/
 /krasny.iml
 /node_modules/
 npm-debug.log
-krasny.iml
 krasny.min.js
 .idea
