@@ -1,6 +1,6 @@
 {
   "name": "krasny",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "description": "soft framework environment for npm",
   "main": "krasny.js",
   "license": "MIT",
@@ -8,7 +8,7 @@
     "postpublish": "git push origin master",
     "prepublish": "rm ./krasny.min.js && browserify krasny.js -o ./tmp && uglifyjs ./tmp > ./krasny.min.js && rm ./tmp"
   },
-    "author": "ciroreed",
+  "author": "ciroreed",
   "dependencies": {
     "ejs": "^2.3.4"
   },
