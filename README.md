@@ -1,11 +1,7 @@
 # krasny
 
-Krasny is a soft framework environment for npm which provides structure for fast developing apps.
+krasny is a lightweight framework that has two dependencies:
 
-Krasny has 3 components: models, views and controllers.
+- https://github.com/mde/ejs
 
-Models try to represent the data structure.
-
-Views are what user sees.
-
-Controllers are for listen events from views and perform request to the server to retrieve data.
+krasny is under hard developement.

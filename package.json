@@ -2,13 +2,15 @@
   "name": "krasny",
   "version": "1.4.0",
   "description": "soft framework environment for npm",
-  "main": "krasny.js",
+  "main": "index.js",
   "license": "MIT",
   "scripts": {
     "postpublish": "git push origin master",
     "prepublish": "rm ./krasny.min.js && browserify krasny.js -o ./tmp && uglifyjs ./tmp > ./krasny.min.js && rm ./tmp"
   },
-  "author": "ciroreed",
+  "author": {
+    "name": "ciroreed"
+  },
   "dependencies": {
     "ejs": "^2.3.4"
   },
@@ -24,5 +26,11 @@
   "bugs": {
     "url": "https://github.com/ciroreed/krasny/issues"
   },
-  "homepage": "https://github.com/ciroreed/krasny#readme"
+  "homepage": "https://github.com/ciroreed/krasny#readme",
+  "readme": "# krasny\n\nkrasny is a lightweight framework that has two dependencies:\n\n- https://github.com/mde/ejs\n\nkrasny is under hard developement.\n",
+  "readmeFilename": "README.md",
+  "gitHead": "3b8ec42ec51cd58102dad4ce4b32f0cbefbded5a",
+  "_id": "krasny@1.4.0",
+  "_shasum": "a2a26f1eb48d87a1b8f67d6a6e7238a9ea2dbfef",
+  "_from": "krasny@*"
 }
